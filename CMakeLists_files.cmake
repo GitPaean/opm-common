@@ -98,8 +98,10 @@ if(ENABLE_ECL_INPUT)
     src/opm/parser/eclipse/EclipseState/SummaryConfig/SummaryConfig.cpp
     src/opm/parser/eclipse/EclipseState/Tables/ColumnSchema.cpp
     src/opm/parser/eclipse/EclipseState/Tables/JFunc.cpp
+    src/opm/parser/eclipse/EclipseState/Tables/PlymwinjTable.cpp
     src/opm/parser/eclipse/EclipseState/Tables/PvtxTable.cpp
     src/opm/parser/eclipse/EclipseState/Tables/SimpleTable.cpp
+    src/opm/parser/eclipse/EclipseState/Tables/Simple2DTable.cpp
     src/opm/parser/eclipse/EclipseState/Tables/TableColumn.cpp
     src/opm/parser/eclipse/EclipseState/Tables/TableContainer.cpp
     src/opm/parser/eclipse/EclipseState/Tables/TableIndex.cpp
@@ -355,6 +357,7 @@ if(ENABLE_ECL_INPUT)
        opm/parser/eclipse/EclipseState/Eclipse3DProperties.hpp
        opm/parser/eclipse/EclipseState/EndpointScaling.hpp
        opm/parser/eclipse/EclipseState/Tables/SimpleTable.hpp
+       opm/parser/eclipse/EclipseState/Tables/Simple2DTable.hpp
        opm/parser/eclipse/EclipseState/Tables/PdvdTable.hpp
        opm/parser/eclipse/EclipseState/Tables/TlpmixpaTable.hpp
        opm/parser/eclipse/EclipseState/Tables/PvdgTable.hpp
@@ -365,6 +368,7 @@ if(ENABLE_ECL_INPUT)
        opm/parser/eclipse/EclipseState/Tables/Eqldims.hpp
        opm/parser/eclipse/EclipseState/Tables/SpecrockTable.hpp
        opm/parser/eclipse/EclipseState/Tables/PlydhflfTable.hpp
+       opm/parser/eclipse/EclipseState/Tables/PlymwinjTable.hpp
        opm/parser/eclipse/EclipseState/Tables/PlyshlogTable.hpp
        opm/parser/eclipse/EclipseState/Tables/RsvdTable.hpp
        opm/parser/eclipse/EclipseState/Tables/VFPInjTable.hpp

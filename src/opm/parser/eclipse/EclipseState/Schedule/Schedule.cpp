@@ -761,6 +761,7 @@ namespace Opm {
     }
 
 
+    void Schedule::handleWECON( const DeckKeyword& keyword, size_t currentStep, const ParseContext& parseContext) {
         for( const auto& record : keyword ) {
             const std::string& wellNamePattern = record.getItem("WELL").getTrimmedString(0);
             WellEconProductionLimits econ_production_limits(record);

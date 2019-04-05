@@ -372,7 +372,7 @@ namespace {
         write_kw(rst_file, "XWEL", wellData.getXWell());
         write_kw(rst_file, "ZWEL", serialize_ZWEL(wellData.getZWell()));
 
-        // Extended set of OPM well vectors
+        /* // Extended set of OPM well vectors
         if (!ecl_compatible_rst)
         {
             const auto sched_wells = schedule.getWells(sim_step);
@@ -384,7 +384,7 @@ namespace {
 
             write_kw(rst_file, "OPM_IWEL", opm_iwel);
             write_kw(rst_file, "OPM_XWEL", opm_xwel);
-        }
+        } */
 
         auto connectionData = Helpers::AggregateConnectionData(ih);
         connectionData.captureDeclaredConnData(schedule, grid, units,

@@ -456,6 +456,27 @@ namespace Opm {
         return true;
     }
 
+    bool WellSegments::updateWSEGVALV(const std::vector<std::pair<int, Valve> >& valve_pairs) {
+        // TODO: not sure it needs to have both Hydrostatic and Frictional pressure drop here
+        // it needs to be tested with the commercial simulator
+        // it is probably yes.
+        //
+        for (const auto& pair : valve_pairs) {
+            const int segment_number = pair.first;
+            const Valve& valve = pair.second;
+            Segment segment = this->getFromSegmentNumber(segment_number);
+            const Segment& outlet_segment = this->getFromSegmentNumber(segment.outletSegment());
+            const double segment_length = segment.totalLength() - outlet_segment.totalLength();
+            // TODO: assert for development
+            assert(segment_length > 0.);
+            // this function can return bool
+            segment.updateValve(valve, segment_length);
+            this->addSegment(segment);
+        }
+
+        return true;
+    }
+
     bool WellSegments::operator!=( const WellSegments& rhs ) const {
         return !( *this == rhs );
     }

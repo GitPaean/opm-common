@@ -87,6 +87,8 @@ namespace Opm {
 
         bool updateWSEGSICD(const std::vector<std::pair<int, SpiralICD> >& sicd_pairs);
 
+        bool updateWSEGVALV(const std::vector<std::pair<int, Valve> >& valve_pairs);
+
     private:
         void processABS();
         void processINC(const bool first_time);

@@ -252,7 +252,7 @@ namespace {
     }
 
     bool is_aquifer(const std::string& keyword) {
-        return keyword[0] == 'A';
+        return keyword[0] == 'A' && keyword.substr(0,3) != "ALL";
     }
 
     SummaryConfigNode::Type parseKeywordType(const std::string& keyword) {
@@ -346,6 +346,21 @@ inline void keywordW( SummaryConfig::keyword_list& list,
         }
     } else
         keywordW( list, schedule.wellNames(), param );
+}
+
+// TODO: we need to add a function simply to to push to the keyword_list
+
+inline void keywordA( SummaryConfig::keyword_list& list,
+                      const std::string& keyword,
+                      Location loc,
+                      const Schedule& schedule) {
+}
+
+inline void keywordA( SummaryConfig::keyword_list& list,
+                      const ParseContext& parseContext,
+                      ErrorGuard& errors,
+                      const DeckKeyword& keyword,
+                      const Schedule& schedule ) {
 }
 
 inline void keywordG( SummaryConfig::keyword_list& list,
@@ -771,6 +786,7 @@ inline void keywordMISC( SummaryConfig::keyword_list& list,
 
     const auto cat = parseKeywordCategory( name );
     switch( cat ) {
+        case Cat::Aquifer: return keywordA( list, parseContext, errors, keyword, schedule );
         case Cat::Well: return keywordW( list, parseContext, errors, keyword, schedule );
         case Cat::Group: return keywordG( list, parseContext, errors, keyword, schedule );
         case Cat::Field: return keywordF( list, keyword );
@@ -799,12 +815,6 @@ inline void handleKW( SummaryConfig::keyword_list& list,
     if (is_udq(keyword))
         throw std::logic_error("UDQ keywords not handleded when expanding alias list");
 
-    if (is_aquifer( keyword )) {
-        std::string msg = "Summary keywords of type: Aquifer is not supported. Keyword: " + keyword + " is ignored";
-        parseContext.handleError(ParseContext::SUMMARY_UNHANDLED_KEYWORD, msg, errors);
-        return;
-    }
-
     using Cat = SummaryConfigNode::Category;
     const auto cat = parseKeywordCategory( keyword );
 
@@ -812,6 +822,7 @@ inline void handleKW( SummaryConfig::keyword_list& list,
         case Cat::Well: return keywordW( list, keyword, std::move(loc), schedule );
         case Cat::Group: return keywordG( list, keyword, std::move(loc), schedule );
         case Cat::Field: return keywordF( list, keyword, std::move(loc) );
+        case Cat::Aquifer: return keywordA( list, keyword, std::move(loc), schedule );
         case Cat::Miscellaneous: return keywordMISC( list, keyword, std::move(loc));
 
         default:
@@ -834,8 +845,9 @@ SummaryConfigNode::Category parseKeywordCategory(const std::string& keyword) {
 
     if (is_special(keyword)) { return Cat::Miscellaneous; }
 
+    if (is_aquifer(keyword)) { return Cat::Aquifer; }
+
     switch (keyword[0]) {
-        case 'A': return Cat::Aquifer;
         case 'W': return Cat::Well;
         case 'G': return Cat::Group;
         case 'F': return Cat::Field;

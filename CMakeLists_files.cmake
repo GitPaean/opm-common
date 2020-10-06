@@ -58,6 +58,7 @@ if(ENABLE_ECL_INPUT)
     src/opm/parser/eclipse/EclipseState/AquiferConfig.cpp
     src/opm/parser/eclipse/EclipseState/AquiferCT.cpp
     src/opm/parser/eclipse/EclipseState/Aquifetp.cpp
+    src/opm/parser/eclipse/EclipseState/NumericalAquifer.cpp
     src/opm/parser/eclipse/EclipseState/Aquancon.cpp
     src/opm/parser/eclipse/EclipseState/checkDeck.cpp
     src/opm/parser/eclipse/EclipseState/EclipseConfig.cpp
@@ -689,6 +690,7 @@ if(ENABLE_ECL_INPUT)
        opm/parser/eclipse/EclipseState/AquiferConfig.hpp
        opm/parser/eclipse/EclipseState/AquiferCT.hpp
        opm/parser/eclipse/EclipseState/Aquifetp.hpp
+       opm/parser/eclipse/EclipseState/NumericalAquifer.hpp
        opm/parser/eclipse/EclipseState/Schedule/Action/ActionAST.hpp
        opm/parser/eclipse/EclipseState/Schedule/Action/ActionContext.hpp
        opm/parser/eclipse/EclipseState/Schedule/Action/ActionResult.hpp

@@ -127,12 +127,13 @@ bool GuideRate::has(const std::string& name, const Phase& phase) const
     return this->injection_group_values.count(std::pair(phase, name)) > 0;
 }
 
-void GuideRate::compute(const std::string& wgname,
-                        size_t             report_step,
-                        double             sim_time,
-                        double             oil_pot,
-                        double             gas_pot,
-                        double             wat_pot)
+void GuideRate::compute(const std::string &wgname,
+                        size_t report_step,
+                        double sim_time,
+                        const bool time_to_update,
+                        double oil_pot,
+                        double gas_pot,
+                        double wat_pot)
 {
     this->potentials[wgname] = RateVector{oil_pot, gas_pot, wat_pot};
 
@@ -141,7 +142,7 @@ void GuideRate::compute(const std::string& wgname,
         this->group_compute(wgname, report_step, sim_time, oil_pot, gas_pot, wat_pot);
     }
     else {
-        this->well_compute(wgname, report_step, sim_time, oil_pot, gas_pot, wat_pot);
+        this->well_compute(wgname, report_step, sim_time, time_to_update, oil_pot, gas_pot, wat_pot);
     }
 }
 
@@ -225,12 +226,13 @@ void GuideRate::compute(const std::string& wgname,
     this->injection_group_values[std::make_pair(phase, wgname)] = group.guide_rate;
 }
 
-void GuideRate::well_compute(const std::string& wgname,
-                             size_t             report_step,
-                             double             sim_time,
-                             double             oil_pot,
-                             double             gas_pot,
-                             double             wat_pot)
+void GuideRate::well_compute(const std::string &wgname,
+                             size_t report_step,
+                             double sim_time,
+                             const bool time_to_update,
+                             double oil_pot,
+                             double gas_pot,
+                             double wat_pot)
 {
     const auto& config = this->schedule.guideRateConfig(report_step);
 
@@ -257,13 +259,9 @@ void GuideRate::well_compute(const std::string& wgname,
             return;
         }
 
-        auto iter = this->values.find(wgname);
-        if (iter != this->values.end()) {
-            const auto& grv = iter->second->curr;
-            const auto time_diff = sim_time - grv.sim_time;
-            if (config.model().update_delay() > time_diff) {
-                return;
-            }
+        // Newly opened wells without calculated guide rates always need to update guide rates
+        if (!time_to_update && this->values.count(wgname) > 0) {
+            return;
         }
 
         const auto guide_rate = this->eval_form(config.model(), oil_pot, gas_pot, wat_pot);
@@ -325,6 +323,20 @@ double GuideRate::get_grvalue_result(const GRValState& gr) const
     return (gr.curr.sim_time < 0.0)
         ? 0.0
         : std::max(gr.curr.value, 0.0);
+}
+
+bool GuideRate::timeToUpdate(const double sim_time, const double time_interval) const {
+    // getting the last update time
+    // TODO: using some values from std::limits
+    double last_update_time = 1.e99;
+    for ([[maybe_unused]] const auto& [wgname, value] : this->values) {
+        const double update_time = value->curr.sim_time;
+        if (update_time < last_update_time) {
+            last_update_time = update_time;
+        }
+    }
+
+    return (sim_time >= (last_update_time + time_interval));
 }
 
 }

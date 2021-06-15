@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE(P1_First)
     const auto stm  = 0.0;
     const auto rpt  = size_t{1};
 
-    cse.gr.compute("P1", rpt, stm, wopp, wgpp, wwpp);
+    cse.gr.compute("P1", rpt, stm, true, wopp, wgpp, wwpp);
 
     const auto orat = 2.0;
     const auto grat = 4.0;      // == 2 * orat
@@ -246,7 +246,7 @@ BOOST_AUTO_TEST_CASE(P2_Second)
         const auto stm  = 0.0;
         const auto rpt  = size_t{1};
 
-        cse.gr.compute("P2", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P2", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(P2_Second)
         const auto stm  = 10.0*Opm::unit::second; // Before recalculation delay
         const auto rpt  = size_t{1};
 
-        cse.gr.compute("P2", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P2", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     const auto orat = 2.0;
@@ -295,7 +295,7 @@ BOOST_AUTO_TEST_CASE(P2_Second)
         const auto stm  = 10.0*Opm::unit::day; // After recalculation delay
         const auto rpt  = size_t{3};
 
-        cse.gr.compute("P2", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P2", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     const auto expect_gr_oil_2 = 10.0 / (0.5 + 1.0/10.0); // wopp_2 / (0.5 + wwpp_2/wopp_2)
@@ -336,7 +336,7 @@ BOOST_AUTO_TEST_CASE(P_Third)
         const auto stm  = 0.0;
         const auto rpt  = size_t{1};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -346,7 +346,7 @@ BOOST_AUTO_TEST_CASE(P_Third)
         const auto stm  = 10.0*Opm::unit::day;
         const auto rpt  = size_t{3};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -356,7 +356,7 @@ BOOST_AUTO_TEST_CASE(P_Third)
         const auto stm  = 20.0*Opm::unit::day;
         const auto rpt  = size_t{4};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     const auto expect_gr_oil_1 =  1.0 / (0.5 +  0.1/ 1.0); // wopp_1 / (0.5 + wwpp_1/wopp_1)
@@ -403,7 +403,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df01)
         const auto stm  = 0.0;
         const auto rpt  = size_t{1};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -413,7 +413,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df01)
         const auto stm  = 10.0*Opm::unit::day;
         const auto rpt  = size_t{3};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -423,7 +423,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df01)
         const auto stm  = 20.0*Opm::unit::day;
         const auto rpt  = size_t{4};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     const auto expect_gr_oil_1 =  1.0 / (0.5 +  0.1/ 1.0); // wopp_1 / (0.5 + wwpp_1/wopp_1)
@@ -470,7 +470,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df09)
         const auto stm  = 0.0;
         const auto rpt  = size_t{1};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -480,7 +480,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df09)
         const auto stm  = 10.0*Opm::unit::day;
         const auto rpt  = size_t{3};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     {
@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE(P_Third_df09)
         const auto stm  = 20.0*Opm::unit::day;
         const auto rpt  = size_t{4};
 
-        cse.gr.compute("P", rpt, stm, wopp, wgpp, wwpp);
+        cse.gr.compute("P", rpt, stm, true, wopp, wgpp, wwpp);
     }
 
     const auto expect_gr_oil_1 =  1.0 / (0.5 +  0.1/ 1.0); // wopp_1 / (0.5 + wwpp_1/wopp_1)

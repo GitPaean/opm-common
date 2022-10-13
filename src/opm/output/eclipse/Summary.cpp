@@ -83,6 +83,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <fmt/format.h>
 
@@ -1365,8 +1366,12 @@ inline quantity preferred_phase_productivty_index(const fn_args& args)
         case Opm::Phase::GAS:
             return potential_rate<rt::productivity_index_gas>(args);
 
-        case Opm::Phase::WATER:
-            return potential_rate<rt::productivity_index_water>(args);
+        case Opm::Phase::WATER: {
+            const auto result = potential_rate<rt::productivity_index_water>(args);
+            std::cout << " WATER WPI " << result.value << std::endl;
+            return result;
+            // return potential_rate<rt::productivity_index_water>(args);
+        }
 
         default:
             break;
@@ -1434,9 +1439,12 @@ inline quantity connection_productivity_index(const fn_args& args)
         return { completion->rates.get(rt::productivity_index_gas, 0.0),
                  rate_unit<rt::productivity_index_gas>() };
 
-    case Opm::Phase::WATER:
-        return { completion->rates.get(rt::productivity_index_water, 0.0),
-                 rate_unit<rt::productivity_index_water>() };
+    case Opm::Phase::WATER: {
+        const auto result = completion->rates.get(rt::productivity_index_water, 0.0);
+        std::cout << " global_index " << global_index << " WATER " << result << std::endl;
+        return {completion->rates.get(rt::productivity_index_water, 0.0),
+                rate_unit<rt::productivity_index_water>()};
+    }
 
     default:
         break;

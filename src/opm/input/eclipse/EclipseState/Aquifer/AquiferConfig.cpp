@@ -33,6 +33,7 @@ AquiferConfig::AquiferConfig(const TableManager& tables,
                              const FieldPropsManager& field_props)
     : aquifetp(tables, deck)
     , aquiferct(tables, deck)
+    , aquiferconstantflux(deck)
     , numerical_aquifers(deck, grid, field_props)
 {}
 

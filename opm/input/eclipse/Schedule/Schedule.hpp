@@ -609,6 +609,7 @@ namespace Opm
                                     const ParseContext& parseContext,
                                     ErrorGuard& errors,
                                     const ScheduleGrid& grid,
+                                    const ScheduleState::map_member<int, SingleAquiferConstantFlux> aqufluxs,
                                     const std::unordered_map<std::string, double> * target_wellpi,
                                     const std::string& prefix,
                                     const bool log_to_debug = false);
@@ -673,6 +674,7 @@ namespace Opm
 
         // Normal keyword handlers -- in KeywordHandlers.cpp
 
+        void handleAQUFLUX   (HandlerContext&);
         void handleBRANPROP  (HandlerContext&);
         void handleCOMPDAT   (HandlerContext&);
         void handleCOMPLUMP  (HandlerContext&);

@@ -54,6 +54,8 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/W.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/W.hpp>
 
+#include <opm/input/eclipse/EclipseState/Aquifer/AquiferConstantFlux.hpp>
+
 #include <opm/input/eclipse/EclipseState/Phase.hpp>
 #include <opm/input/eclipse/Schedule/Action/ActionX.hpp>
 #include <opm/input/eclipse/Schedule/Action/ActionResult.hpp>
@@ -125,6 +127,14 @@ namespace {
 
 }
 
+
+    void Schedule::handleAQUFLUX(Schedule::HandlerContext& handlerContext) {
+        auto& aqufluxs = this->snapshots.back().aqufluxs;
+        for (const auto& record : handlerContext.keyword) {
+            SingleAquiferConstantFlux aquifer(record);
+            aqufluxs.update(aquifer);
+        }
+    }
 
     void Schedule::handleBRANPROP(HandlerContext& handlerContext) {
         auto ext_network = this->snapshots.back().network.get();
@@ -2245,6 +2255,7 @@ Well{0} entered with disallowed 'FIELD' parent group:
     bool Schedule::handleNormalKeyword(HandlerContext& handlerContext) {
         using handler_function = void (Schedule::*) (HandlerContext&);
         static const std::unordered_map<std::string,handler_function> handler_functions = {
+            {"AQUFLUX",   &Schedule::handleAQUFLUX},
             { "BOX",      &Schedule::handleGEOKeyword},
             { "BRANPROP", &Schedule::handleBRANPROP  },
             { "COMPDAT" , &Schedule::handleCOMPDAT   },

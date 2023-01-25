@@ -209,18 +209,33 @@ namespace Opm {
         //const ScheduleGridWrapper gridWrapper { grid } ;
         ScheduleGrid grid(ecl_grid, fp, this->completed_cells);
 
+        // will use the solution_deck to generate the Aquifer related here
+        // referring to the scanSOLUTIONSection
+        const auto& solution_section = SOLUTIONSection(deck);
+        const auto& aquflux_keywords = solution_section.getKeywordList("AQUFLUX");
+        ScheduleState::map_member<int, SingleAquiferConstantFlux> aquifer_constant_flux;
+        for (const auto* keyword : aquflux_keywords) {
+            for (const auto& record : *keyword) {
+                SingleAquiferConstantFlux aquifer(record);
+                aquifer_constant_flux.update(aquifer);
+            }
+        }
+
         if (rst) {
             if (!tracer_config)
                 throw std::logic_error("Bug: when loading from restart a valid TracerConfig object must be supplied");
 
             auto restart_step = this->m_static.rst_info.report_step;
-            this->iterateScheduleSection( 0, restart_step, parseContext, errors, grid, nullptr, "");
+            this->iterateScheduleSection(0, restart_step, parseContext, errors, grid,
+                                         aquifer_constant_flux, nullptr, "");
             this->load_rst(*rst, *tracer_config, grid, fp);
             if (! this->restart_output.writeRestartFile(restart_step))
                 this->restart_output.addRestartOutput(restart_step);
-            this->iterateScheduleSection( restart_step, this->m_sched_deck.size(), parseContext, errors, grid, nullptr, "");
+            this->iterateScheduleSection(restart_step, this->m_sched_deck.size(), parseContext, errors, grid,
+                                         aquifer_constant_flux, nullptr, "");
         } else {
-            this->iterateScheduleSection( 0, this->m_sched_deck.size(), parseContext, errors, grid, nullptr, "");
+            this->iterateScheduleSection(0, this->m_sched_deck.size(), parseContext, errors, grid,
+                                         aquifer_constant_flux, nullptr, "");
         }
 
         //m_grid = std::make_shared<SparseScheduleGrid>(grid, gridWrapper.getHitKeys());
@@ -543,6 +558,7 @@ void Schedule::iterateScheduleSection(std::size_t load_start, std::size_t load_e
                                       const ParseContext& parseContext,
                                       ErrorGuard& errors,
                                       const ScheduleGrid& grid,
+                                      const ScheduleState::map_member<int, SingleAquiferConstantFlux> aqufluxs,
                                       const std::unordered_map<std::string, double> * target_wellpi,
                                       const std::string& prefix,
                                       const bool log_to_debug) {
@@ -624,7 +640,12 @@ void Schedule::iterateScheduleSection(std::size_t load_start, std::size_t load_e
                                        block.location().lineno));
                 }
             }
+            // TODO: we should pass in the AQUFLUX related (SOLUTION keywords that can be updated with SCHEDULE)
+            // if there is no RESTART, we just give it to the Report Step zero. 
             this->create_next(block);
+
+            this->snapshots.back().aqufluxs = aqufluxs;
+
 
             std::unordered_map<std::string, double> wpimult_global_factor;
 
@@ -1474,13 +1495,14 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
         this->end_report(reportStep);
         if (reportStep < this->m_sched_deck.size() - 1) {
             iterateScheduleSection(
-                reportStep + 1,
-                this->m_sched_deck.size(),
-                parseContext,
-                errors,
-                grid,
-                &target_wellpi,
-                prefix);
+                    reportStep + 1,
+                    this->m_sched_deck.size(),
+                    parseContext,
+                    errors,
+                    grid,
+                    ScheduleState::map_member<int, SingleAquiferConstantFlux>{},
+                    &target_wellpi,
+                    prefix, 0);
         }
     }
 
@@ -1524,7 +1546,9 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
         if (reportStep < this->m_sched_deck.size() - 1) {
             const auto log_to_debug = true;
             this->iterateScheduleSection(reportStep + 1, this->m_sched_deck.size(),
-                                         parseContext, errors, grid, &target_wellpi,
+                                         parseContext, errors, grid,
+                                         ScheduleState::map_member<int, SingleAquiferConstantFlux>{},
+                                         &target_wellpi,
                                          prefix, log_to_debug);
         }
         OpmLog::debug("\\----------------------------------------------------------------------");

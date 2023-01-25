@@ -23,6 +23,7 @@
 #include <opm/input/eclipse/EclipseState/Aquifer/Aquancon.hpp>
 #include <opm/input/eclipse/EclipseState/Aquifer/Aquifetp.hpp>
 #include <opm/input/eclipse/EclipseState/Aquifer/AquiferCT.hpp>
+#include <opm/input/eclipse/EclipseState/Aquifer/AquiferConstantFlux.hpp>
 #include <opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquifers.hpp>
 
 #include <cstddef>
@@ -80,6 +81,8 @@ public:
 private:
     Aquifetp aquifetp{};
     AquiferCT aquiferct{};
+    // TODO: should not be here, but let us begin from here for testing
+    AquiferConstantFlux aquiferconstantflux{};
     mutable NumericalAquifers numerical_aquifers{};
     Aquancon aqconn{};
 };

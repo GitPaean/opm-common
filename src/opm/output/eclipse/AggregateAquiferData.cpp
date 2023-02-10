@@ -32,6 +32,7 @@
 #include <opm/input/eclipse/EclipseState/Grid/EclipseGrid.hpp>
 
 #include <opm/input/eclipse/Schedule/SummaryState.hpp>
+#include <opm/input/eclipse/Schedule/Schedule.hpp>
 
 #include <opm/input/eclipse/EclipseState/Tables/FlatTable.hpp>
 
@@ -98,10 +99,11 @@ namespace {
 
     template <typename ConnectionCallBack>
     void analyticAquiferConnectionLoop(const Opm::AquiferConfig& aqConfig,
+                                       const Opm::Schedule& schedule,
                                        ConnectionCallBack&&      connectionOp)
     {
         for (const auto& [aquiferID, connections] : aqConfig.connections().data()) {
-            if ( !aqConfig.hasAnalyticalAquifer(int(aquiferID)) ) {
+            if ( !aqConfig.hasAnalyticalAquifer(int(aquiferID)) && !schedule.hasAquiferFlux(int(aquiferID)) ) {
                 continue;
             }
 
@@ -526,7 +528,8 @@ namespace {
 Opm::RestartIO::Helpers::AggregateAquiferData::
 AggregateAquiferData(const InteHEAD::AquiferDims& aqDims,
                      const AquiferConfig&         aqConfig,
-                     const EclipseGrid&           grid)
+                     const EclipseGrid&           grid,
+                     const Schedule&              schedule)
     : maxActiveAnalyticAquiferID_   { aqDims.maxAquiferID }
     , numActiveConn_                ( aqDims.maxAquiferID, 0 )
     , totalInflux_                  ( aqDims.maxAquiferID, 0.0 )
@@ -539,7 +542,7 @@ AggregateAquiferData(const InteHEAD::AquiferDims& aqDims,
     , singleprecAnalyticAquiferConn_{ SinglePrecAnalyticAquiferConn::allocate(aqDims) }
     , doubleprecAnalyticAquiferConn_{ DoublePrecAnalyticAquiferConn::allocate(aqDims) }
 {
-    if (! aqConfig.hasAnalyticalAquifer()) {
+    if (! aqConfig.hasAnalyticalAquifer() && !schedule.hasAquiferFluxEnd()) {
         return;
     }
 
@@ -547,7 +550,7 @@ AggregateAquiferData(const InteHEAD::AquiferDims& aqDims,
 
     // Aquifer connections do not change in SCHEDULE.  Leverage that
     // property to compute static connection information exactly once.
-    analyticAquiferConnectionLoop(aqConfig, [this, &grid, &map]
+    analyticAquiferConnectionLoop(aqConfig, schedule, [this, &grid, &map]
         (const std::size_t           aquiferID,
          const std::size_t           connectionID,
          const double                tot_influx,

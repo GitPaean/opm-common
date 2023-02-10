@@ -30,6 +30,7 @@
 namespace Opm {
     class AquiferConfig;
     class EclipseGrid;
+    class Schedule;
     class SummaryState;
     class UnitSystem;
 } // Opm
@@ -54,7 +55,8 @@ namespace Opm { namespace RestartIO { namespace Helpers {
         ///    the active cells.
         explicit AggregateAquiferData(const InteHEAD::AquiferDims& aqDims,
                                       const AquiferConfig&         aqConfig,
-                                      const EclipseGrid&           grid);
+                                      const EclipseGrid&           grid,
+                                      const Schedule&              schedule);
 
         /// Linearise dynamic information pertinent to analytic aquifers
         /// into internal arrays.

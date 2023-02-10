@@ -40,6 +40,8 @@
 
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
+#include <opm/input/eclipse/Schedule/Schedule.hpp>
+
 #include <cstddef>
 #include <initializer_list>
 #include <stdexcept>
@@ -604,13 +606,14 @@ namespace {
 
     void writeAquifers(const Opm::AquiferConfig&          aquifer,
                        const ::Opm::EclipseGrid&          grid,
+                       const ::Opm::Schedule&             schedule,
                        ::Opm::EclIO::OutputStream::Init&  initFile)
     {
         if (aquifer.hasNumericalAquifer()) {
             writeNumericalAquifers(aquifer.numericalAquifers(), grid, initFile);
         }
 
-        if (aquifer.hasAnalyticalAquifer()) {
+        if (aquifer.hasAnalyticalAquifer() || schedule.hasAquiferFluxEnd()) {
             writeAnalyticalAquiferConnections(aquifer, grid, initFile);
         }
     }
@@ -645,7 +648,7 @@ void Opm::InitIO::write(const ::Opm::EclipseState&              es,
     if (!nnc.empty()) {
         writeNonNeighbourConnections(nnc, units, initFile);
     }
-    if (es.aquifer().active()) {
-        writeAquifers(es.aquifer(), grid, initFile);
+    if (es.aquifer().active() || schedule.hasAquiferFluxEnd()) {
+        writeAquifers(es.aquifer(), grid, schedule, initFile);
     }
 }

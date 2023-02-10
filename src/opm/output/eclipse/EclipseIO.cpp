@@ -151,11 +151,12 @@ EclipseIO::Impl::Impl( const EclipseState& eclipseState,
 {
     const auto& aqConfig = this->es.aquifer();
 
-    if (aqConfig.hasAnalyticalAquifer() || aqConfig.hasNumericalAquifer()) {
+    if (aqConfig.hasAnalyticalAquifer() || aqConfig.hasNumericalAquifer() || schedule.hasAquiferFluxEnd()) {
         this->aquiferData = RestartIO::Helpers::AggregateAquiferData {
-            RestartIO::inferAquiferDimensions(this->es),
+            RestartIO::inferAquiferDimensions(this->es, this->schedule),
             aqConfig,
-            this->grid
+            this->grid,
+            schedule
         };
     }
 }

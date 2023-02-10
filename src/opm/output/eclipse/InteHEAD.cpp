@@ -26,6 +26,7 @@
 #include <opm/input/eclipse/EclipseState/Aquifer/Aquancon.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/EclipseGrid.hpp>
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
+#include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 #include <opm/input/eclipse/EclipseState/Runspec.hpp>
 
@@ -881,9 +882,9 @@ Opm::RestartIO::getSimulationTimePoint(const std::time_t start,
 }
 
 namespace {
-    int getNumberOfAnalyticAquifers(const Opm::AquiferConfig& cfg)
+    int getNumberOfAnalyticAquifers(const Opm::AquiferConfig& cfg, const Opm::Schedule& schedule)
     {
-        const auto numAnalyticAquifers = cfg.ct().size() + cfg.fetp().size();
+        const auto numAnalyticAquifers = cfg.ct().size() + cfg.fetp().size() + schedule.getAquiferFluxListEnd().size();
 
         return static_cast<int>(numAnalyticAquifers);
     }
@@ -910,7 +911,7 @@ namespace {
         return maxNumActiveConn;
     }
 
-    int getMaximumAnalyticAquiferID(const Opm::AquiferConfig& cfg)
+    int getMaximumAnalyticAquiferID(const Opm::AquiferConfig& cfg, const Opm::Schedule& sched)
     {
         auto maxAquID = [](const auto& aquiferCollection) -> int
         {
@@ -920,19 +921,26 @@ namespace {
                                        return std::max(maxID, aquiferData.aquiferID);
                                    });
         };
+        int max_id = std::max(maxAquID(cfg.ct()), maxAquID(cfg.fetp()) );
 
-        return std::max(maxAquID(cfg.ct()), maxAquID(cfg.fetp()));
+        if (sched.hasAquiferFluxEnd()) {
+            const auto aqufluxs = sched.getAquiferFluxListEnd();
+            const int max_aquflux_id = *max_element(aqufluxs.begin(), aqufluxs.end());
+            max_id = std::max(max_id, max_aquflux_id);
+        }
+
+        return max_id;
     }
 }
 
 Opm::RestartIO::InteHEAD::AquiferDims
-Opm::RestartIO::inferAquiferDimensions(const EclipseState& es)
+Opm::RestartIO::inferAquiferDimensions(const EclipseState& es, const Schedule& schedule)
 {
     auto dim = Opm::RestartIO::InteHEAD::AquiferDims{};
     const auto& cfg = es.aquifer();
 
-    if (cfg.hasAnalyticalAquifer()) {
-        dim.numAquifers = getNumberOfAnalyticAquifers(cfg);
+    if (cfg.hasAnalyticalAquifer() || schedule.hasAquiferFluxEnd()) {
+        dim.numAquifers = getNumberOfAnalyticAquifers(cfg, schedule);
         dim.maxNumAquifers = getMaximumNumberOfAnalyticAquifers(es.runspec());
 
         dim.maxNumAquiferConn =
@@ -941,7 +949,7 @@ Opm::RestartIO::inferAquiferDimensions(const EclipseState& es)
         dim.maxNumActiveAquiferConn =
             getMaximumNumberOfActiveAnalyticAquiferConnections(cfg);
 
-        dim.maxAquiferID = getMaximumAnalyticAquiferID(cfg);
+        dim.maxAquiferID = getMaximumAnalyticAquiferID(cfg, schedule);
     }
 
     if (cfg.hasNumericalAquifer()) {

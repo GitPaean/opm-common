@@ -264,6 +264,7 @@ namespace Opm
         // get the list of the constant flux aquifer through the whole schedule
         std::vector<int> getAquiferFluxListEnd() const;
         bool hasAquiferFlux(int id) const;
+        bool hasAquiferFluxEnd() const;
         std::vector<Well> getWells(std::size_t timeStep) const;
         std::vector<Well> getWellsatEnd() const;
         void shut_well(const std::string& well_name, std::size_t report_step);

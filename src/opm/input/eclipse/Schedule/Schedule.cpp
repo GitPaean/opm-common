@@ -1161,6 +1161,10 @@ void Schedule::iterateScheduleSection(std::size_t load_start, std::size_t load_e
         return aquifers.has(id);
     }
 
+    bool Schedule::hasAquiferFluxEnd() const {
+        return this->snapshots.back().aqufluxs.size() > 0;
+    }
+
     const Well& Schedule::getWell(const std::string& wellName, std::size_t timeStep) const {
         return this->snapshots[timeStep].wells.get(wellName);
     }

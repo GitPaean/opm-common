@@ -30,6 +30,7 @@ namespace Opm {
 
 class EclipseGrid;
 class EclipseState;
+class Schedule;
 class UnitSystem;
 class Phases;
 }
@@ -249,7 +250,7 @@ namespace Opm { namespace RestartIO {
                            const double      elapsed);
 
     InteHEAD::AquiferDims
-    inferAquiferDimensions(const EclipseState& es);
+    inferAquiferDimensions(const EclipseState& es, const Schedule& sched);
 }} // Opm::RestartIO
 
 #endif // OPM_INTEHEAD_HEADER_INCLUDED

@@ -4272,10 +4272,10 @@ configureRequiredRestartParameters(const SummaryConfig& sumcfg,
     for (const auto& node : requiredSegmentVectors(sched))
         makeEvaluator(node);
 
-    const auto& aquflux_ids = sched.getAquiferFluxListEnd();
-    if (aqConfig.hasAnalyticalAquifer() || !aquflux_ids.empty()) {
+    if (aqConfig.hasAnalyticalAquifer() || sched.hasAquiferFluxEnd()) {
         auto aquiferIDs = analyticAquiferIDs(aqConfig);
-        if ( !aquflux_ids.empty() ) {
+        if (sched.hasAquiferFluxEnd()) {
+            const auto& aquflux_ids = sched.getAquiferFluxListEnd();
             aquiferIDs.insert(aquiferIDs.end(), aquflux_ids.begin(), aquflux_ids.end());
         }
 

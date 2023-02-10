@@ -464,6 +464,7 @@ namespace {
     }
 
     void updateAndWriteAquiferData(const AquiferConfig&           aqConfig,
+                                   const Schedule&                schedule,
                                    const data::Aquifers&          aquData,
                                    const SummaryState&            summaryState,
                                    const UnitSystem&              usys,
@@ -472,7 +473,7 @@ namespace {
     {
         aquiferData.captureDynamicdAquiferData(aqConfig, aquData, summaryState, usys);
 
-        if (aqConfig.hasAnalyticalAquifer()) {
+        if (aqConfig.hasAnalyticalAquifer() || schedule.hasAquiferFluxEnd()) {
             writeAnalyticAquiferData(aquiferData, rstFile);
         }
 
@@ -528,10 +529,10 @@ namespace {
         // TODO: Currently, we put the AQUFLUX aquifers in the Schedule. As a result, we will not be able to
         // TODO: to write anything related to AQUFLUX with the current way.
         // Schedule needs to be checked for the Aquifer output purpose.
-        if ((es.aquifer().hasAnalyticalAquifer() || es.aquifer().hasNumericalAquifer() || !schedule.getAquiferFluxListEnd().empty()) &&
+        if ((es.aquifer().hasAnalyticalAquifer() || es.aquifer().hasNumericalAquifer() || schedule.hasAquiferFluxEnd()) &&
             aquiferData.has_value())
         {
-            updateAndWriteAquiferData(es.aquifer(), aquDynData, sumState,
+            updateAndWriteAquiferData(es.aquifer(), schedule, aquDynData, sumState,
                                       schedule.getUnits(), aquiferData.value(), rstFile);
         }
     }

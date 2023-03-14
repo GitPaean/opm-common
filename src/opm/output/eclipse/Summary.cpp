@@ -447,6 +447,7 @@ measure mul_unit( measure lhs, measure rhs ) {
 struct quantity {
     double value;
     Opm::UnitSystem::measure unit;
+    static constexpr double small_value = 1.e-20;
 
     quantity operator+( const quantity& rhs ) const {
         assert( this->unit == rhs.unit );
@@ -460,17 +461,17 @@ struct quantity {
     quantity operator/( const quantity& rhs ) const {
         const auto res_unit = div_unit( this->unit, rhs.unit );
 
-        if( rhs.value == 0 ) return { 0.0, res_unit };
+        if( std::abs(rhs.value) < small_value ) return { 0.0, res_unit };
         return { this->value / rhs.value, res_unit };
     }
 
     quantity operator/( double divisor ) const {
-        if( divisor == 0 ) return { 0.0, this->unit };
+        if( std::abs(divisor) < small_value ) return { 0.0, this->unit };
         return { this->value / divisor , this->unit };
     }
 
     quantity& operator/=( double divisor ) {
-        if( divisor == 0 )
+        if( std::abs(divisor) < small_value )
             this->value = 0;
         else
             this->value /= divisor;

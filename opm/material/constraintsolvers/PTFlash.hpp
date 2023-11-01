@@ -297,10 +297,8 @@ protected:
         typename Vector::field_type Kmin = K[0];
         typename Vector::field_type Kmax = K[0];
         for (int compIdx=1; compIdx<numComponents; ++compIdx){
-            if (K[compIdx] < Kmin)
-                Kmin = K[compIdx];
-            else if (K[compIdx] >= Kmax)
-                Kmax = K[compIdx];
+            Kmin = std::min(Kmin, K[compIdx]);
+            Kmax = std::max(Kmin, K[compIdx]);
         }
 
         // Lower and upper bound for solution
@@ -308,11 +306,18 @@ protected:
         auto Lmax = Kmax / (Kmax - 1);
 
         // Check if Lmin < Lmax, and switch if not
-        if (Lmin > Lmax)
-        {
+        if (Lmin > Lmax) {
             auto Ltmp = Lmin;
             Lmin = Lmax;
             Lmax = Ltmp;
+        }
+
+        Lmin = std::clamp(Lmin, 0., 1.);
+        Lmax = std::clamp(Lmax, 0., 1.);
+
+        if (Lmin == Lmax) {
+            Lmin = 0.;
+            Lmax = 1.0;
         }
 
         // Initial guess

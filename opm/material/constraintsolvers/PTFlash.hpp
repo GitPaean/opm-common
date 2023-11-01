@@ -151,6 +151,9 @@ public:
         if ( !is_single_phase ) {
             // Rachford Rice equation to get initial L for composition solver
             L_scalar = solveRachfordRice_g_(K_scalar, z_scalar, verbosity);
+            if (L_scalar <= 0. || L >= 1.) {
+                 L_scalar = solveRachfordRice_g_(K_scalar, z_scalar, verbosity);
+            }
             flash_2ph(z_scalar, twoPhaseMethod, K_scalar, L_scalar, fluid_state_scalar, verbosity);
         } else {
             // Cell is one-phase. Use Li's phase labeling method to see if it's liquid or vapor
@@ -297,10 +300,12 @@ protected:
         typename Vector::field_type Kmin = K[0];
         typename Vector::field_type Kmax = K[0];
         for (int compIdx=1; compIdx<numComponents; ++compIdx){
-            if (K[compIdx] < Kmin)
+            Kmin = std::min(Kmin, K[compIdx]);
+            Kmax = std::max(Kmin, K[compIdx]);
+            /* if (K[compIdx] < Kmin)
                 Kmin = K[compIdx];
             else if (K[compIdx] >= Kmax)
-                Kmax = K[compIdx];
+                Kmax = K[compIdx]; */
         }
 
         // Lower and upper bound for solution
@@ -313,6 +318,14 @@ protected:
             auto Ltmp = Lmin;
             Lmin = Lmax;
             Lmax = Ltmp;
+        }
+
+        Lmin = std::clamp(Lmin, 0., 1.);
+        Lmax = std::clamp(Lmax, 0., 1.);
+
+        if (Lmin == Lmax) {
+            Lmin = 0.;
+            Lmax = 1.0;
         }
 
         // Initial guess
@@ -567,7 +580,7 @@ protected:
 
     // TODO: basically FlashFluidState and ComponentVector are both depending on the one Scalar type
     template <class FlashFluidState, class ComponentVector>
-    static void computeLiquidVapor_(FlashFluidState& fluid_state, typename FlashFluidState::Scalar& L, ComponentVector& K, const ComponentVector& z)
+    static void computeLiquidVapor_(FlashFluidState& fluid_state, const typename FlashFluidState::Scalar& L, ComponentVector& K, const ComponentVector& z)
     {
         // Calculate x and y, and normalize
         ComponentVector x;
@@ -1144,8 +1157,14 @@ protected:
         // Successive substitution loop
         //
         for (int i=0; i < maxIterations; ++i){
+            if (L <=0. || L >=1.) {
+                std::cout << " L " << L << std::endl;
+            }
             // Compute (normalized) liquid and vapor mole fractions
             computeLiquidVapor_(fluid_state, L, K, z);
+            if (L <=0. || L >=1.) {
+                std::cout << " L " << L << std::endl;
+            }
 
             // Calculate fugacity coefficient
             using ParamCache = typename FluidSystem::template ParameterCache<typename FlashFluidState::Scalar>;

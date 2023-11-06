@@ -26,6 +26,8 @@
 #include <string>
 #include <vector>
 
+#include <fmt/format.h>
+
 #include <opm/input/eclipse/Schedule/Network/Branch.hpp>
 #include <opm/input/eclipse/Schedule/Network/Node.hpp>
 
@@ -68,6 +70,31 @@ private:
     std::map<std::string, Node> m_nodes;
     bool has_indexed_node_name(const std::string& name) const;
     void add_indexed_node_name(std::string name);
+    std::string toString() const {
+        fmt::memory_buffer out;
+
+        // Output branches
+        fmt::format_to(std::back_inserter(out), "Branches:\n");
+        for (const auto& branch : m_branches) {
+            fmt::format_to(std::back_inserter(out), "  Downtree Node: {}, Uptree Node: {}\n",
+                           branch.downtree_node(), branch.uptree_node());
+        }
+
+        // Output indexed node names
+        fmt::format_to(std::back_inserter(out), "\nIndexed Node Names:\n");
+        for (const auto& name : insert_indexed_node_names) {
+            fmt::format_to(std::back_inserter(out), "  {}\n", name);
+        }
+
+        // Output nodes
+        fmt::format_to(std::back_inserter(out), "\nNodes:\n");
+        for (const auto& node_pair : m_nodes) {
+            fmt::format_to(std::back_inserter(out), "  Name: {}, Node: {}\n",
+                           node_pair.first, node_pair.second.name());
+        }
+
+        return fmt::to_string(out);
+    }
 };
 
 }

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <iterator>
 #include <stdexcept>
+#include <iostream>
 
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
 
@@ -91,6 +92,7 @@ void ExtNetwork::add_or_replace_branch(Branch branch)
     const std::string& uptree_node = branch.uptree_node();
     const std::string& downtree_node = branch.downtree_node();
 
+    std::cout << " add_or_replace branch [" << uptree_node << ", " << downtree_node << " ]" << std::endl;
     // Add any missing nodes
     for (const std::string& nodename : { downtree_node, uptree_node }) {
         if (!this->has_node(nodename)) {
@@ -106,6 +108,7 @@ void ExtNetwork::add_or_replace_branch(Branch branch)
     if (uptree_link.has_value()){
         const auto& old_uptree_node = uptree_link.value().uptree_node();
         this->drop_branch(old_uptree_node, downtree_node);
+        std::cout << " dropping branch [" << old_uptree_node << ", " << downtree_node << "]" << std::endl;
     }
     
     // Update existing branch if it exists
@@ -113,12 +116,15 @@ void ExtNetwork::add_or_replace_branch(Branch branch)
     if (!downtree_branches.empty()) {
         auto branch_iter = std::find_if(this->m_branches.begin(), this->m_branches.end(), [&uptree_node, &downtree_node](const Branch& b) { return (b.uptree_node() == uptree_node && b.downtree_node() == downtree_node); });
         if (branch_iter != this->m_branches.end()) {
+            std::cout << " found the branch [" << uptree_node << ", " << downtree_node << " ]" << std::endl;
             *branch_iter = branch;
             return;
         }
     }
     
     this->m_branches.push_back( std::move(branch) );
+    std::cout << " current network " << this->toString() << std::endl;
+    std::cout << std::endl;
 }
 
 bool ExtNetwork::is_disconnected(const std::string& node_name) const {
@@ -140,6 +146,9 @@ void ExtNetwork::drop_branch(const std::string& uptree_node, const std::string& 
     if (branch_iter != this->m_branches.end()) {
         this->m_branches.erase(branch_iter);
     }
+    std::cout << " drop_branch [" << uptree_node << ", " << downtree_node << "]" << std::endl;
+    std::cout << " current network " << this->toString() << std::endl;
+    std::cout << std::endl;
 }
 
 

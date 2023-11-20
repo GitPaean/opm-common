@@ -23,8 +23,8 @@
   copyright holders.
 */
 
-#ifndef OPM_THREECOMPONENTFLUIDSYSTEM_HH
-#define OPM_THREECOMPONENTFLUIDSYSTEM_HH
+#ifndef OPM_GENERICFLUIDSYSTEM_HH
+#define OPM_GENERICFLUIDSYSTEM_HH
 
 #include <opm/material/fluidsystems/BaseFluidSystem.hpp>
 #include <opm/material/components/SimpleCO2.hpp>
@@ -37,16 +37,22 @@
 #include <opm/material/viscositymodels/LBC.hpp>
 
 namespace Opm {
+    template <typename Scalar>
+    struct ComponentParam {
+        std::string name;
+        Scalar molar_mass;
+        Scalar critic_temp;
+        Scalar critic_pres;
+        Scalar acentric_factor;
+    };
 /*!
  * \ingroup FluidSystem
  *
  * \brief A two phase three component fluid system with components
  * CO2, Methane and NDekan
  */
-
     template<class Scalar>
-    class ThreeComponentFluidSystem
-            : public Opm::BaseFluidSystem<Scalar, ThreeComponentFluidSystem<Scalar> > {
+    class GenericFluidSystem : public Opm::BaseFluidSystem<Scalar, GenericFluidSystem<Scalar> > {
     public:
         // TODO: I do not think these should be constant in fluidsystem, will try to make it non-constant later
         static const int numPhases=2;
@@ -67,9 +73,9 @@ namespace Opm {
         using Comp2 = Opm::C10<Scalar>;
 
         template <class ValueType>
-        using ParameterCache = Opm::PTFlashParameterCache<ValueType, ThreeComponentFluidSystem<Scalar>>;
-        using ViscosityModel = typename Opm::ViscosityModels<Scalar, ThreeComponentFluidSystem<Scalar>>;
-        using PengRobinsonMixture = typename Opm::PengRobinsonMixture<Scalar, ThreeComponentFluidSystem<Scalar>>;
+        using ParameterCache = Opm::PTFlashParameterCache<ValueType, GenericFluidSystem<Scalar>>;
+        using ViscosityModel = typename Opm::ViscosityModels<Scalar, GenericFluidSystem<Scalar>>;
+        using PengRobinsonMixture = typename Opm::PengRobinsonMixture<Scalar, GenericFluidSystem<Scalar>>;
 
         /*!
          * \brief The acentric factor of a component [].
@@ -213,7 +219,13 @@ namespace Opm {
             LhsEval phi = PengRobinsonMixture::computeFugacityCoefficient(fluidState, paramCache, phaseIdx, compIdx);
             return phi;
         }
+    private:
+        static std::vector<ComponentParam<Scalar>> component_param_;
 
     };
+
+    template <class Scalar>
+    std::vector<ComponentParam<Scalar>>
+    GenericFluidSystem<Scalar>::component_param_;
 }
-#endif //OPM_THREECOMPONENTFLUIDSYSTEM_HH
+#endif // OPM_GENERICFLUIDSYSTEM_HH

@@ -27,23 +27,31 @@
 #define OPM_GENERICFLUIDSYSTEM_HH
 
 #include <opm/material/fluidsystems/BaseFluidSystem.hpp>
-#include <opm/material/components/SimpleCO2.hpp>
-#include <opm/material/components/C10.hpp>
-#include <opm/material/components/C1.hpp>
-
 
 // TODO: this is something else need to check
 #include <opm/material/fluidsystems/PTFlashParameterCache.hpp>
 #include <opm/material/viscositymodels/LBC.hpp>
 
 namespace Opm {
+
     template <typename Scalar>
     struct ComponentParam {
         std::string name;
         Scalar molar_mass;
         Scalar critic_temp;
         Scalar critic_pres;
+        Scalar critic_vol;
         Scalar acentric_factor;
+
+        ComponentParam(const std::string_view name_, const Scalar molar_mass_, const Scalar critic_temp_,
+                       const Scalar critic_pres_, const Scalar critic_vol_, const Scalar acentric_factor_)
+                       : name(name_),
+                         molar_mass(molar_mass_),
+                         critic_temp(critic_temp_),
+                         critic_pres(critic_pres_),
+                         critic_vol(critic_vol_),
+                         acentric_factor(acentric_factor_)
+        {}
     };
 /*!
  * \ingroup FluidSystem
@@ -63,19 +71,26 @@ namespace Opm {
         static constexpr int oilPhaseIdx = 0;
         static constexpr int gasPhaseIdx = 1;
 
-        static constexpr int Comp0Idx = 0;
-        static constexpr int Comp1Idx = 1;
-        static constexpr int Comp2Idx = 2;
-
-        // TODO: needs to be more general
-        using Comp0 = Opm::SimpleCO2<Scalar>;
-        using Comp1 = Opm::C1<Scalar>;
-        using Comp2 = Opm::C10<Scalar>;
-
         template <class ValueType>
         using ParameterCache = Opm::PTFlashParameterCache<ValueType, GenericFluidSystem<Scalar>>;
         using ViscosityModel = typename Opm::ViscosityModels<Scalar, GenericFluidSystem<Scalar>>;
         using PengRobinsonMixture = typename Opm::PengRobinsonMixture<Scalar, GenericFluidSystem<Scalar>>;
+
+        template<typename Param>
+        static void addComponent(const Param& param)
+        {
+            assert(component_param_.size() <= numComponents);
+            if (component_param_.size() == numComponents) {
+                std::cout << " the fluid system has reached maximum " << numComponents << " component,"
+                          << " the component " << param.name << " will not be added " << std::endl;
+            }
+            component_param_.push_back(param);
+        }
+
+        static void init()
+        {
+            component_param_.reserve(numComponents);
+        }
 
         /*!
          * \brief The acentric factor of a component [].
@@ -84,12 +99,7 @@ namespace Opm {
          */
         static Scalar acentricFactor(unsigned compIdx)
         {
-            switch (compIdx) {
-            case Comp0Idx: return Comp0::acentricFactor();
-            case Comp1Idx: return Comp1::acentricFactor();
-            case Comp2Idx: return Comp2::acentricFactor();
-            default: throw std::runtime_error("Illegal component index for acentricFactor");
-            }
+            return component_param_[compIdx].acentric_factor;
         }
         /*!
          * \brief Critical temperature of a component [K].
@@ -98,25 +108,16 @@ namespace Opm {
          */
         static Scalar criticalTemperature(unsigned compIdx)
         {
-            switch (compIdx) {
-                case Comp0Idx: return Comp0::criticalTemperature();
-                case Comp1Idx: return Comp1::criticalTemperature();
-                case Comp2Idx: return Comp2::criticalTemperature();
-                default: throw std::runtime_error("Illegal component index for criticalTemperature");
-            }
+            return component_param_[compIdx].critic_temp;
         }
         /*!
          * \brief Critical pressure of a component [Pa].
          *
          * \copydetails Doxygen::compIdxParam
          */
-        static Scalar criticalPressure(unsigned compIdx) {
-            switch (compIdx) {
-                case Comp0Idx: return Comp0::criticalPressure();
-                case Comp1Idx: return Comp1::criticalPressure();
-                case Comp2Idx: return Comp2::criticalPressure();
-                default: throw std::runtime_error("Illegal component index for criticalPressure");
-            }
+        static Scalar criticalPressure(unsigned compIdx)
+        {
+            return component_param_[compIdx].critic_pres;
         }
         /*!
         * \brief Critical volume of a component [m3].
@@ -125,23 +126,13 @@ namespace Opm {
         */
         static Scalar criticalVolume(unsigned compIdx)
         {
-            switch (compIdx) {
-                case Comp0Idx: return Comp0::criticalVolume();
-                case Comp1Idx: return Comp1::criticalVolume();
-                case Comp2Idx: return Comp2::criticalVolume();
-                default: throw std::runtime_error("Illegal component index for criticalVolume");
-            }
+            return component_param_[compIdx].critic_vol;
         }
 
         //! \copydoc BaseFluidSystem::molarMass
         static Scalar molarMass(unsigned compIdx)
         {
-            switch (compIdx) {
-                case Comp0Idx: return Comp0::molarMass();
-                case Comp1Idx: return Comp1::molarMass();
-                case Comp2Idx: return Comp2::molarMass();
-                default: throw std::runtime_error("Illegal component index for molarMass");
-            }
+            return component_param_[compIdx].molar_mass;
         }
 
         /*!
@@ -150,6 +141,7 @@ namespace Opm {
          */
         static Scalar interactionCoefficient(unsigned /*comp1Idx*/, unsigned /*comp2Idx*/)
         {
+            // TODO: some data structure is needed to support this
             return 0.0;
         }
 
@@ -166,14 +158,7 @@ namespace Opm {
         //! \copydoc BaseFluidSystem::componentName
         static const char* componentName(unsigned compIdx)
         {
-                static const char* name[] = {
-                        Comp0::name(),
-                        Comp1::name(),
-                        Comp2::name(),
-                };
-
-                assert(compIdx < 3);
-                return name[compIdx];
+            return component_param_[compIdx].name.c_str();
         }
 
         /*!
@@ -221,7 +206,6 @@ namespace Opm {
         }
     private:
         static std::vector<ComponentParam<Scalar>> component_param_;
-
     };
 
     template <class Scalar>

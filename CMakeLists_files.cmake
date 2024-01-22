@@ -111,6 +111,7 @@ if(ENABLE_ECL_INPUT)
     src/opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquiferConnection.cpp
     src/opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/SingleNumericalAquifer.cpp
     src/opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquifers.cpp
+    src/opm/input/eclipse/EclipseState/Compositional/CompositionalConfig.cpp
     src/opm/input/eclipse/EclipseState/checkDeck.cpp
     src/opm/input/eclipse/EclipseState/EclipseConfig.cpp
     src/opm/input/eclipse/EclipseState/EclipseState.cpp
@@ -1236,6 +1237,7 @@ if(ENABLE_ECL_INPUT)
        opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquiferConnection.hpp
        opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/SingleNumericalAquifer.hpp
        opm/input/eclipse/EclipseState/Aquifer/NumericalAquifer/NumericalAquifers.hpp
+       opm/input/eclipse/EclipseState/Compositional/CompositionalConfig.hpp
        opm/input/eclipse/Schedule/Action/ActionAST.hpp
        opm/input/eclipse/Schedule/Action/ActionContext.hpp
        opm/input/eclipse/Schedule/Action/ActionResult.hpp

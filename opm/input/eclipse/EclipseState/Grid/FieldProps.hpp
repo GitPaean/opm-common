@@ -281,6 +281,9 @@ static const std::unordered_map<std::string, keyword_info<double>> double_keywor
                                                                                       {"RVW",      keyword_info<double>{}.unit_string("OilDissolutionFactor")}
                                                                                       };
 
+    static const std::unordered_map<std::string, keyword_info<double>> composition_keywords = {{"XMF", keyword_info<double>{}},
+                                                                                               {"YMF", keyword_info<double>{}}
+                                                                                               };
 }
 
 namespace SCHEDULE {
@@ -601,6 +604,7 @@ private:
     void init_satfunc(const std::string& keyword, Fieldprops::FieldData<double>& satfunc);
     void init_porv(Fieldprops::FieldData<double>& porv);
     void init_tempi(Fieldprops::FieldData<double>& tempi);
+    void init_composition(Fieldprops::FieldData<double>& cmop);
     std::string canonical_fipreg_name(const std::string& fipreg);
     const std::string& canonical_fipreg_name(const std::string& fipreg) const;
 

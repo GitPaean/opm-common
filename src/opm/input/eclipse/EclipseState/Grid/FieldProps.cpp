@@ -45,6 +45,8 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/O.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/P.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/T.hpp>
+#include <opm/input/eclipse/Parser/ParserKeywords/X.hpp>
+#include <opm/input/eclipse/Parser/ParserKeywords/Y.hpp>
 
 #include "Operate.hpp"
 
@@ -685,6 +687,10 @@ Fieldprops::FieldData<double>& FieldProps::init_get(const std::string& keyword_n
     if (keyword == ParserKeywords::TEMPI::keywordName)
         this->init_tempi(this->double_data[keyword]);
 
+    if (keyword == ParserKeywords::XMF::keywordName || keyword == ParserKeywords::YMF::keywordName) {
+        this->init_composition(this->double_data[keyword]);
+    }
+
     if ((Fieldprops::keywords::PROPS::satfunc.count(keyword) == 1) ||
         is_capillary_pressure(keyword))
     {
@@ -1166,6 +1172,11 @@ void FieldProps::init_tempi(Fieldprops::FieldData<double>& tempi) {
         tempi.default_assign(this->tables.rtemp());
 }
 
+void FieldProps::init_composition(Fieldprops::FieldData<double>& cmop) {
+    const size_t size = cmop.size();
+    const size_t size2 = cmop.size();
+}
+
 void FieldProps::init_porv(Fieldprops::FieldData<double>& porv) {
     auto& porv_data = porv.data;
     auto& porv_status = porv.value_status;
@@ -1423,6 +1434,12 @@ void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section) {
         if (Fieldprops::keywords::SOLUTION::double_keywords.count(name) == 1) {
             this->handle_double_keyword(Section::SOLUTION, Fieldprops::keywords::SOLUTION::double_keywords.at(name), keyword, box);
             continue;
+        }
+
+        if (Fieldprops::keywords::SOLUTION::composition_keywords.count(name) == 1) {
+            // TODO: passing in the runspec.numComps();
+            auto kw_info = Fieldprops::keywords::SOLUTION::composition_keywords.at(name);
+            kw_info.num_value_per_cell(3);
         }
 
         this->handle_keyword(keyword, box);

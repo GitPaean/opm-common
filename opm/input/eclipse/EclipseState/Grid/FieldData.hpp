@@ -78,7 +78,7 @@ namespace Fieldprops
             all_set(false)
         {
             if (global_size != 0) {
-                this->global_data = std::vector<T>(global_size);
+                this->global_data = std::vector<T>(global_size * kw_info.num_value);
                 this->global_value_status = std::vector<value::status>(global_size, value::status::uninitialized);
             }
 
@@ -88,7 +88,11 @@ namespace Fieldprops
 
 
         std::size_t size() const {
-            return this->data.size();
+            return this->data.size() / this->numPerCell();
+        }
+
+        std::size_t numPerCell() const {
+            return this->kw_info.num_value;
         }
 
         bool valid() const {

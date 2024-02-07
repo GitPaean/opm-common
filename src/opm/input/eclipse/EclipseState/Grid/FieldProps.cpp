@@ -214,8 +214,10 @@ std::string default_region_keyword(const Deck& deck) {
 
 
 template <typename T>
-void verify_deck_data(const DeckKeyword& keyword, const std::vector<T>& deck_data, const Box& box) {
-    if (box.size() != deck_data.size()) {
+void verify_deck_data(const Fieldprops::keywords::keyword_info<T>& kw_info, const DeckKeyword& keyword, const std::vector<T>& deck_data, const Box& box) {
+    // TODO: here is something new, there might be multiple values for each cell
+    if (box.size() * kw_info.num_value != deck_data.size()) {
+    // if (deck_data.size() % box.size() != 0) {
         const auto& location = keyword.location();
         std::string msg = "Fundamental error with keyword: " + keyword.name() +
             " at: " + location.filename + ", line: " + std::to_string(location.lineno) +
@@ -227,15 +229,20 @@ void verify_deck_data(const DeckKeyword& keyword, const std::vector<T>& deck_dat
 
 template <typename T>
 void assign_deck(const Fieldprops::keywords::keyword_info<T>& kw_info, const DeckKeyword& keyword, Fieldprops::FieldData<T>& field_data, const std::vector<T>& deck_data, const std::vector<value::status>& deck_status, const Box& box) {
-    verify_deck_data(keyword, deck_data, box);
+    verify_deck_data(kw_info, keyword, deck_data, box);
     for (const auto& cell_index : box.index_list()) {
         auto active_index = cell_index.active_index;
         auto data_index = cell_index.data_index;
+        for (size_t i = 0; i < kw_info.num_value; ++i) {
+            auto deck_data_index = i* box.size() + data_index;
+            auto data_active_index = i * box.size() + active_index;
 
-        if (value::has_value(deck_status[data_index])) {
-            if (deck_status[data_index] == value::status::deck_value || field_data.value_status[active_index] == value::status::uninitialized) {
-                field_data.data[active_index] = deck_data[data_index];
-                field_data.value_status[active_index] = deck_status[data_index];
+            if (value::has_value(deck_status[deck_data_index])) {
+                if (deck_status[deck_data_index] == value::status::deck_value ||
+                    field_data.value_status[data_active_index] == value::status::uninitialized) {
+                    field_data.data[data_active_index] = deck_data[deck_data_index];
+                    field_data.value_status[data_active_index] = deck_status[deck_data_index];
+                }
             }
         }
     }
@@ -257,7 +264,7 @@ void assign_deck(const Fieldprops::keywords::keyword_info<T>& kw_info, const Dec
 
 template <typename T>
 void multiply_deck(const Fieldprops::keywords::keyword_info<T>& kw_info, const DeckKeyword& keyword, Fieldprops::FieldData<T>& field_data, const std::vector<T>& deck_data, const std::vector<value::status>& deck_status, const Box& box) {
-    verify_deck_data(keyword, deck_data, box);
+    verify_deck_data(kw_info, keyword, deck_data, box);
     for (const auto& cell_index : box.index_list()) {
         auto active_index = cell_index.active_index;
         auto data_index = cell_index.data_index;
@@ -692,9 +699,9 @@ Fieldprops::FieldData<double>& FieldProps::init_get(const std::string& keyword_n
     if (keyword == ParserKeywords::TEMPI::keywordName)
         this->init_tempi(this->double_data[keyword]);
 
-    if (keyword == ParserKeywords::XMF::keywordName || keyword == ParserKeywords::YMF::keywordName) {
+    /* if (keyword == ParserKeywords::XMF::keywordName || keyword == ParserKeywords::YMF::keywordName) {
         this->init_composition(this->double_data[keyword]);
-    }
+    } */
 
     if ((Fieldprops::keywords::PROPS::satfunc.count(keyword) == 1) ||
         is_capillary_pressure(keyword))

@@ -72,7 +72,7 @@ namespace Fieldprops
         FieldData() = default;
 
         FieldData(const keywords::keyword_info<T>& info, std::size_t active_size, std::size_t global_size) :
-            data(std::vector<T>(active_size)),
+            data(std::vector<T>(active_size * info.num_value)),
             value_status(active_size, value::status::uninitialized),
             kw_info(info),
             all_set(false)

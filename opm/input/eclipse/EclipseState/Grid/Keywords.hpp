@@ -35,7 +35,7 @@ struct keyword_info {
     bool multiplier = false;
     bool top = false;
     bool global = false;
-    std::size_t num_value = 1;
+    mutable std::size_t num_value = 1;
 
 
     bool operator==(const keyword_info& other) const {
@@ -47,6 +47,9 @@ struct keyword_info {
                this->num_value == other.num_value;
     }
 
+    /* explicit keyword_info<T> (const std::size_t num_value_per_cell) :
+        num_value(num_value_per_cell)
+    { } */
 
     keyword_info<T>& init(T init_value) {
         this->scalar_init = init_value;
@@ -73,7 +76,7 @@ struct keyword_info {
         return *this;
     }
 
-    keyword_info<T>& num_value_per_cell(const std::size_t n) {
+    const keyword_info<T>& num_value_per_cell(const std::size_t n) const {
         this->num_value = n;
         return *this;
     }

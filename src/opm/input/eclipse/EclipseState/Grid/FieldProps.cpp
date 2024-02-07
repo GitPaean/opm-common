@@ -479,7 +479,8 @@ bool FieldProps::rst_cmp(const FieldProps& full_arg, const FieldProps& rst_arg) 
 }
 
 
-FieldProps::FieldProps(const Deck& deck, const Phases& phases, const EclipseGrid& grid, const TableManager& tables_arg) :
+FieldProps::FieldProps(const Deck& deck, const Phases& phases, const EclipseGrid& grid,
+                       const TableManager& tables_arg, const std::size_t ncomps) :
     active_size(grid.getNumActive()),
     global_size(grid.getCartesianSize()),
     unit_system(deck.getActiveUnitSystem()),
@@ -536,7 +537,7 @@ FieldProps::FieldProps(const Deck& deck, const Phases& phases, const EclipseGrid
         this->scanPROPSSection(PROPSSection(deck));
 
     if (DeckSection::hasSOLUTION(deck))
-        this->scanSOLUTIONSection(SOLUTIONSection(deck));
+        this->scanSOLUTIONSection(SOLUTIONSection(deck), ncomps);
 }
 
 
@@ -674,6 +675,10 @@ bool FieldProps::supported<int>(const std::string& keyword) {
 template <>
 Fieldprops::FieldData<double>& FieldProps::init_get(const std::string& keyword_name, const Fieldprops::keywords::keyword_info<double>& kw_info) {
     const std::string& keyword = Fieldprops::keywords::get_keyword_from_alias(keyword_name);
+
+    if (keyword == ParserKeywords::XMF::keywordName || keyword == ParserKeywords::YMF::keywordName) {
+        const int abc = 8;
+    }
 
     auto iter = this->double_data.find(keyword);
     if (iter != this->double_data.end())
@@ -1175,6 +1180,8 @@ void FieldProps::init_tempi(Fieldprops::FieldData<double>& tempi) {
 void FieldProps::init_composition(Fieldprops::FieldData<double>& cmop) {
     const size_t size = cmop.size();
     const size_t size2 = cmop.size();
+    auto& comp_data = cmop.data;
+    auto& comp_status = cmop.value_status;
 }
 
 void FieldProps::init_porv(Fieldprops::FieldData<double>& porv) {
@@ -1427,7 +1434,7 @@ void FieldProps::scanREGIONSSection(const REGIONSSection& regions_section) {
 }
 
 
-void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section) {
+void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section, const std::size_t ncomps) {
     auto box = makeGlobalGridBox(this->grid_ptr);
     for (const auto& keyword : solution_section) {
         const std::string& name = keyword.name();
@@ -1437,9 +1444,11 @@ void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section) {
         }
 
         if (Fieldprops::keywords::SOLUTION::composition_keywords.count(name) == 1) {
-            // TODO: passing in the runspec.numComps();
-            auto kw_info = Fieldprops::keywords::SOLUTION::composition_keywords.at(name);
-            kw_info.num_value_per_cell(3);
+            // TODO: maybe we should go to the funciton handle_keyword for more flexibility
+            assert(ncomps > 1);
+            const auto& kw_info = Fieldprops::keywords::SOLUTION::composition_keywords.at(name).num_value_per_cell(ncomps);
+            this->handle_double_keyword(Section::SOLUTION, kw_info, keyword, box);
+            // kw_info.num_value_per_cell(ncomps);
         }
 
         this->handle_keyword(keyword, box);

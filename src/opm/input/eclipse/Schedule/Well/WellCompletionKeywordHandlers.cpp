@@ -37,6 +37,7 @@
 #include <fmt/format.h>
 
 #include <unordered_set>
+#include <iostream>
 
 namespace Opm {
 
@@ -50,14 +51,26 @@ void handleCOMPDAT(HandlerContext& handlerContext)
         const auto wellnames = handlerContext.wellNames(wellNamePattern);
 
         for (const auto& name : wellnames) {
+            const bool p4_well = (name == "P4");
+            if (p4_well) {
+                const auto& location = handlerContext.keyword.location();
+                const auto msg = fmt::format(" processing well {} with COMPDAT In {} line {} ",
+                                             name, location.filename, location.lineno);
+            }
             auto well2 = handlerContext.state().wells.get(name);
 
             auto connections = std::make_shared<WellConnections>(well2.getConnections());
             const auto origWellConnSetIsEmpty = connections->empty();
+            if (p4_well) {
+                std::cout << " well " << name << " origWellConnSetIsEmpty? " << origWellConnSetIsEmpty << std::endl;
+            }
 
             connections->loadCOMPDAT(record, handlerContext.grid, name,
                                      well2.getWDFAC(), handlerContext.keyword.location());
             const auto newWellConnSetIsEmpty = connections->empty();
+            if (p4_well) {
+                std::cout << " well " << name << " newWellConnSetIsEmpty? " << newWellConnSetIsEmpty << std::endl;
+            }
 
             if (well2.updateConnections(std::move(connections), handlerContext.grid)) {
                 auto wdfac = std::make_shared<WDFAC>(well2.getWDFAC());
@@ -83,6 +96,13 @@ Well {} is not connected to grid - will remain SHUT)",
 
             handlerContext.state().wellgroup_events()
                 .addEvent(name, ScheduleEvents::COMPLETION_CHANGE);
+
+            if (p4_well) {
+                const auto& location = handlerContext.keyword.location();
+                const auto msg = fmt::format("DONE processing well {} with COMPDAT In {} line {} ",
+                                             name, location.filename, location.lineno);
+            }
+
         }
     }
 
@@ -111,11 +131,22 @@ void handleCOMPLUMP(HandlerContext& handlerContext)
         const auto well_names = handlerContext.wellNames(wellNamePattern);
 
         for (const auto& wname : well_names) {
+            const bool p4_well = (wname == "P4");
+            if (p4_well) {
+                const auto& location = handlerContext.keyword.location();
+                const auto msg = fmt::format(" processing well {} with COMPLUMP In {} line {} ",
+                                             wname, location.filename, location.lineno);
+            }
             auto well = handlerContext.state().wells.get(wname);
             if (well.handleCOMPLUMP(record)) {
                 handlerContext.state().wells.update( std::move(well) );
 
                 handlerContext.record_well_structure_change();
+            }
+            if (p4_well) {
+                const auto& location = handlerContext.keyword.location();
+                const auto msg = fmt::format(" DONE processing well {} with COMPLUMP In {} line {} ",
+                                             wname, location.filename, location.lineno);
             }
         }
     }

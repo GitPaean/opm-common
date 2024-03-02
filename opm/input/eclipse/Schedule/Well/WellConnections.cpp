@@ -973,14 +973,20 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
         return ! (*this == rhs);
     }
 
-    void WellConnections::filter(const ActiveGridCells& grid)
+    void WellConnections::filter(const ActiveGridCells& grid, const bool output)
     {
         auto isInactive = [&grid](const Connection& c) {
             return !grid.cellActive(c.getI(), c.getJ(), c.getK());
         };
+        if (output) {
+            std::cout << " before filtering, connection number is " << m_connections.size() << std::endl;
+        }
 
         auto new_end = std::remove_if(m_connections.begin(), m_connections.end(), isInactive);
         m_connections.erase(new_end, m_connections.end());
+        if (output) {
+            std::cout << " after filtering, connection number is " << m_connections.size() << std::endl;
+        }
     }
 
     double WellConnections::segment_perf_length(int segment) const

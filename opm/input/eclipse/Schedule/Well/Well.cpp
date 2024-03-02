@@ -1589,7 +1589,8 @@ bool Well::updateWSEGVALV(const std::vector<std::pair<int, Valve> >& valve_pairs
 
 
 void Well::filterConnections(const ActiveGridCells& grid) {
-    this->connections->filter(grid);
+    const bool output = this->name() == "P4";
+    this->connections->filter(grid, output);
 }
 
 

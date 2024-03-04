@@ -44,6 +44,8 @@
 
 #include <cstdio>
 
+#include <iostream>
+
 #include <fmt/format.h>
 
 namespace {
@@ -689,6 +691,7 @@ void PAvgCalculator::inferBlockAveragePressures(const Sources& sources,
 
 std::vector<std::size_t> PAvgCalculator::allWellConnections() const
 {
+    std::cout << " in PAvgCalculator::allWellConnections() this->connections_.size() " << this->connections_.size() << std::endl;
     auto ix = std::vector<std::size_t>(this->connections_.size());
     std::iota(ix.begin(), ix.end(), std::size_t{0});
 

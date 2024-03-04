@@ -996,6 +996,13 @@ void Schedule::iterateScheduleSection(std::size_t load_start, std::size_t load_e
         for (const auto& wname : well_order)
             wells.push_back( this->snapshots[timeStep].wells.get(wname) );
 
+        std::cout << " outputting in getWells at report step "  << timeStep << std::endl;
+        for (const auto& well : wells) {
+            if (well.name() == "P4") {
+                std::cout << " well P4 has connections " << well.getConnections().size() << std::endl;
+            }
+        }
+
         return wells;
     }
 

@@ -980,23 +980,23 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
         };
         if (output) {
             std::cout << " before filtering, connection number is " << m_connections.size() << std::endl;
-            size_t  index = 0;
+            /* size_t  index = 0;
             for (const auto& con : this->m_connections) {
                 std::cout << " index " << index << " complump " << con.complnum() << std::endl;
                 index++;
-            }
+            } */
         }
 
         auto new_end = std::remove_if(m_connections.begin(), m_connections.end(), isInactive);
         m_connections.erase(new_end, m_connections.end());
         if (output) {
             std::cout << " after filtering, connection number is " << m_connections.size() << std::endl;
-            size_t  index = 0;
+            /* size_t  index = 0;
             for (const auto& con : this->m_connections) {
                 std::cout << " index " << index << " complump " << con.complnum() << std::endl;
                 index++;
             }
-            exit(100);
+            exit(100); */
         }
     }
 

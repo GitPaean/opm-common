@@ -1319,6 +1319,17 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
                 well.get().filterConnections(grid);
             }
         }
+        std::cout << " outputting the connection size after filteration for well P4" << std::endl;
+        for (size_t rp_step = 0; rp_step < this->snapshots.size(); ++rp_step) {
+            const auto& sched_state = this->snapshots[rp_step];
+            const auto& wells = sched_state.wells();
+            for (auto& well : wells) {
+                const bool output = well.get().name() == "P4";
+                if (output) {
+                    std::cout << " report step " << rp_step << " well P4 connection size " << well.get().getConnections().size() << std::endl;
+                }
+            }
+        }
     }
 
 

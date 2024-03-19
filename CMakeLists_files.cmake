@@ -802,6 +802,7 @@ list( APPEND PUBLIC_HEADER_FILES
       opm/common/utility/numeric/SparseVector.hpp
       opm/common/utility/numeric/UniformTableLinear.hpp
       opm/common/utility/OpmInputError.hpp
+      opm/common/utility/OutputTypeTag.hpp
       opm/common/utility/parameters/ParameterGroup.hpp
       opm/common/utility/parameters/ParameterGroup_impl.hpp
       opm/common/utility/parameters/Parameter.hpp

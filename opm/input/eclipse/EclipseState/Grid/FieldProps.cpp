@@ -1441,6 +1441,7 @@ void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section, co
             assert(ncomps > 1);
             const auto& kw_info = Fieldprops::keywords::SOLUTION::composition_keywords.at(name).num_value_per_cell(ncomps);
             this->handle_double_keyword(Section::SOLUTION, kw_info, keyword, box);
+            continue;
         }
 
         this->handle_keyword(keyword, box);

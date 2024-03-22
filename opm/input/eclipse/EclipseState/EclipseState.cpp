@@ -334,6 +334,10 @@ namespace Opm {
         return this->aquifer_config;
     }
 
+    const CompositionalConfig& EclipseState::compositionalConfig() const {
+        return this->compositional_config;
+    }
+
     const TracerConfig& EclipseState::tracer() const {
         return this->tracer_config;
     }

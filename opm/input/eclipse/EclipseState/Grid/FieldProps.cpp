@@ -131,6 +131,9 @@ keyword_info<double> global_kw_info(const std::string& name,
     if (SOLUTION::double_keywords.count(name))
         return SOLUTION::double_keywords.at(name);
 
+    if (SOLUTION::composition_keywords.count(name))
+        return SOLUTION::composition_keywords.at(name);
+
     if (SCHEDULE::double_keywords.count(name))
         return SCHEDULE::double_keywords.at(name);
 
@@ -660,7 +663,8 @@ bool FieldProps::supported<double>(const std::string& keyword) {
     if (Fieldprops::keywords::PROPS::satfunc.count(keyword) != 0)
         return true;
 
-    if (Fieldprops::keywords::SOLUTION::double_keywords.count(keyword) != 0)
+    if (Fieldprops::keywords::SOLUTION::double_keywords.count(keyword) != 0 ||
+        Fieldprops::keywords::SOLUTION::composition_keywords.count(keyword) != 0)
         return true;
 
     return false;

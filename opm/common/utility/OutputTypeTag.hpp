@@ -8,6 +8,7 @@ template<typename TypeTag>
 void outputTypeTagInfo() {
     std::cout << typeid(TypeTag).name() << std::endl;
 }
+#endif
 
 #endif
 

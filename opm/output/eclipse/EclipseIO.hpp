@@ -188,6 +188,8 @@ public:
     const out::Summary& summary() const;
     const SummaryConfig& finalSummaryConfig() const;
 
+    void clearZcorn();
+
 private:
     class Impl;
     std::unique_ptr<Impl> impl;

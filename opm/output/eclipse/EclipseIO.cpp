@@ -121,6 +121,10 @@ public:
 
     void recordSummaryOutput(const double secs_elapsed);
 
+    void clearZcorn() {
+        grid.clearZcorn();
+    }
+
     const EclipseState& es;
     EclipseGrid grid;
 
@@ -268,6 +272,8 @@ Opm::EclipseIO::EclipseIO(const EclipseState&  es,
 }
 
 Opm::EclipseIO::~EclipseIO() = default;
+
+void Opm::EclipseIO::clearZcorn() {this->impl->clearZcorn();};
 
 // int_data: Writes key(string) and integers vector to INIT file as eclipse keywords
 //  - Key: Max 8 chars.

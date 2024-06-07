@@ -231,6 +231,15 @@ namespace Opm {
         static bool hasEqualDVDEPTHZ(const Deck&);
         static bool allEqual(const std::vector<double> &v);
 
+        void clearZcorn() {
+            m_input_zcorn.reset();
+            m_input_coord.reset();
+            m_zcorn.clear();
+            m_zcorn.shrink_to_fit();
+            m_coord.clear();
+            m_coord.shrink_to_fit();
+        }
+
     private:
         std::vector<double> m_minpvVector;
         MinpvMode m_minpvMode;

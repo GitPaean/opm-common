@@ -34,8 +34,8 @@ struct keyword_info {
     bool multiplier = false;
     bool top = false;
     bool global = false;
-    // TODO: checking whether mutable can be removed
-    std::size_t num_value = 1;
+    // it is updated in a later stage when parsing relevant keywords
+    mutable std::size_t num_value = 1;
 
 
     bool operator==(const keyword_info& other) const {

@@ -143,6 +143,12 @@ global_kw_info(const std::string& name, const bool allow_unsupported)
     {
         return kwPos->second;
     }
+    
+    if (auto kwPos = SOLUTION::composition_keywords.find(name);
+        kwPos != SOLUTION::composition_keywords.end())
+    {
+        return kwPos->second;
+    }
 
     if (auto kwPos = SCHEDULE::double_keywords.find(name);
         kwPos != SCHEDULE::double_keywords.end())
@@ -520,7 +526,8 @@ bool FieldProps::rst_cmp(const FieldProps& full_arg, const FieldProps& rst_arg) 
 }
 
 
-FieldProps::FieldProps(const Deck& deck, const Phases& phases, EclipseGrid& grid, const TableManager& tables_arg) :
+FieldProps::FieldProps(const Deck& deck, const Phases& phases, EclipseGrid& grid,
+                       const TableManager& tables_arg, const std::size_t ncomps) :
     active_size(grid.getNumActive()),
     global_size(grid.getCartesianSize()),
     unit_system(deck.getActiveUnitSystem()),
@@ -594,7 +601,7 @@ FieldProps::FieldProps(const Deck& deck, const Phases& phases, EclipseGrid& grid
         this->scanPROPSSection(PROPSSection(deck));
 
     if (DeckSection::hasSOLUTION(deck))
-        this->scanSOLUTIONSection(SOLUTIONSection(deck));
+        this->scanSOLUTIONSection(SOLUTIONSection(deck), ncomps);
 }
 
 
@@ -712,7 +719,8 @@ bool FieldProps::supported<double>(const std::string& keyword) {
     if (Fieldprops::keywords::PROPS::satfunc.count(keyword) != 0)
         return true;
 
-    if (Fieldprops::keywords::SOLUTION::double_keywords.count(keyword) != 0)
+    if (Fieldprops::keywords::SOLUTION::double_keywords.count(keyword) != 0 ||
+        Fieldprops::keywords::SOLUTION::composition_keywords.count(keyword) != 0)
         return true;
 
     return false;
@@ -1561,12 +1569,19 @@ void FieldProps::scanREGIONSSection(const REGIONSSection& regions_section) {
 }
 
 
-void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section) {
+void FieldProps::scanSOLUTIONSection(const SOLUTIONSection& solution_section, const std::size_t ncomps) {
     auto box = makeGlobalGridBox(this->grid_ptr);
     for (const auto& keyword : solution_section) {
         const std::string& name = keyword.name();
         if (Fieldprops::keywords::SOLUTION::double_keywords.count(name) == 1) {
             this->handle_double_keyword(Section::SOLUTION, Fieldprops::keywords::SOLUTION::double_keywords.at(name), keyword, box);
+            continue;
+        }
+
+        if (Fieldprops::keywords::SOLUTION::composition_keywords.count(name) == 1) {
+            // TODO: maybe we should go to the function handle_keyword for more flexibility
+            const auto& kw_info = Fieldprops::keywords::SOLUTION::composition_keywords.at(name).num_value_per_cell(ncomps);
+            this->handle_double_keyword(Section::SOLUTION, kw_info, keyword, box);
             continue;
         }
 

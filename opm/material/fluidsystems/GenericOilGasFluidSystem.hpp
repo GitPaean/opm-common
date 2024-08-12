@@ -46,9 +46,15 @@
 
 namespace Opm {
 
+    // TODO: refactor to remove the dummy classes
     template<typename Scalar>
     class DummyOilPvt;
 
+    template<typename Scalar>
+    class DummyWaterPvt;
+
+    template<typename Scalar>
+    class DummyGasPvt;
 /*!
  * \ingroup FluidSystem
  *
@@ -351,6 +357,16 @@ namespace Opm {
             assert(false);
             return false;
         }
+
+        static DummyWaterPvt<Scalar> waterPvt() {
+            assert(false);
+            return dummy_water_pvt_;
+        }
+
+        static DummyGasPvt<Scalar> gasPvt() {
+            assert(false);
+            return dummy_gas_pvt_;
+        }
     private:
         static bool isConsistent() {
             return component_param_.size() == NumComp;
@@ -359,6 +375,8 @@ namespace Opm {
         static std::vector<ComponentParam> component_param_;
         static std::vector<Scalar> interaction_coefficients_;
         static constexpr DummyOilPvt<Scalar> dummy_oil_pvt_{};
+        static constexpr DummyGasPvt<Scalar> dummy_gas_pvt_{};
+        static constexpr DummyWaterPvt<Scalar> dummy_water_pvt_{};
     public:
         static std::string printComponentParams() {
             std::string result = "Components Information:\n";
@@ -408,6 +426,105 @@ namespace Opm {
         }
 
         Scalar oilReferenceDensity(unsigned  /*reg_id*/) const
+        {
+            return 0.;
+        }
+
+
+
+        template <typename ValueType>
+        ValueType viscosity(unsigned /*reg_id*/,
+                            const ValueType& /*temperature*/,
+                            const ValueType& /*pressure*/,
+                            const ValueType& /*rs*/) const
+        {
+            return 0;
+        }
+    };
+
+    template <typename Scalar>
+    class DummyWaterPvt {
+    public:
+        DummyWaterPvt() = default;
+
+        template <typename ValueType>
+        ValueType saturatedGasDissolutionFactor(unsigned /*reg_id*/,
+                                                const ValueType& /*temperature*/,
+                                                const ValueType& /*pressure*/,
+                                                const ValueType& /*salinity*/) const
+        {
+            return 0;
+        }
+
+        template <typename ValueType>
+        ValueType saturatedInverseFormationVolumeFactor(unsigned /*reg_id*/,
+                                                        const ValueType& /*temperature*/,
+                                                        const ValueType& /*pressure*/,
+                                                        const ValueType& /*salinity*/) const
+        {
+            return 0;
+        }
+
+        template <typename ValueType>
+        ValueType inverseFormationVolumeFactor(unsigned /*reg_id*/,
+                                               const ValueType& /*temperature*/,
+                                               const ValueType& /*pressure*/,
+                                               const ValueType& /*rsw*/,
+                                               const ValueType& /*salinity*/) const
+        {
+            return 0;
+        }
+
+        Scalar waterReferenceDensity(unsigned  /*reg_id*/) const
+        {
+            return 0.;
+        }
+
+
+
+        template <typename ValueType>
+        ValueType viscosity(unsigned /*reg_id*/,
+                            const ValueType& /*temperature*/,
+                            const ValueType& /*pressure*/,
+                            const ValueType& /*rsw*/,
+                            const ValueType& /*rs*/) const
+        {
+            return 0;
+        }
+    };
+
+    template <typename Scalar>
+    class DummyGasPvt {
+    public:
+        DummyGasPvt() = default;
+
+        template <typename ValueType>
+        ValueType saturatedGasDissolutionFactor(unsigned /*reg_id*/,
+                                                const ValueType& /*temperature*/,
+                                                const ValueType& /*pressure*/) const
+        {
+            return 0;
+        }
+
+        template <typename ValueType>
+        ValueType saturatedInverseFormationVolumeFactor(unsigned /*reg_id*/,
+                                                        const ValueType& /*temperature*/,
+                                                        const ValueType& /*pressure*/) const
+        {
+            return 0;
+        }
+
+        template <typename ValueType>
+        ValueType inverseFormationVolumeFactor(unsigned /*reg_id*/,
+                                               const ValueType& /*temperature*/,
+                                               const ValueType& /*pressure*/,
+                                               const ValueType& /*rv*/,
+                                               const ValueType& /*rvw*/) const
+        {
+            return 0;
+        }
+
+        Scalar gasReferenceDensity(unsigned  /*reg_id*/) const
         {
             return 0.;
         }

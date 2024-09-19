@@ -147,17 +147,39 @@ public:
         }
         // TODO: we do not need two variables is_stable and is_single_hase, while lacking a good name
         // TODO: from the later code, is good if we knows whether single_phase_gas or single_phase_oil here
-        const bool is_single_phase = is_stable;
+        bool is_single_phase = is_stable;
 
         // Update the composition if cell is two-phase
-        if ( !is_single_phase ) {
+        if ( !is_stable ) {
             // Rachford Rice equation to get initial L for composition solver
             L_scalar = solveRachfordRice_g_(K_scalar, z_scalar, verbosity);
+            if (L_scalar < 1.e-6 || L_scalar > 1-1.e-6 ) {
+                is_single_phase = true;
+            } else {
+                is_single_phase = false;
+            }
+        }
+        if (is_single_phase) {
+            // Cell is one-phase. Use Li's phase labeling method to see if it's liquid or vapor
+            L_scalar = li_single_phase_label_(fluid_state_scalar, z_scalar, verbosity);
+        } else {
+            // Cell is two-phase
             flash_2ph(z_scalar, twoPhaseMethod, K_scalar, L_scalar, fluid_state_scalar, verbosity);
+        }
+        /* if ( !is_single_phase ) {
+            // Rachford Rice equation to get initial L for composition solver
+            L_scalar = solveRachfordRice_g_(K_scalar, z_scalar, verbosity);
+            if (L_scalar < 1.e-6 || L_scalar > 1-1.e-6 ) {
+                is_single_phase = true;
+                // L_scalar = li_single_phase_label_(fluid_state_scalar, z_scalar, verbosity);
+                std::cout << " two phase while L_scalar is so closed to one phase";
+            } //else {
+                flash_2ph(z_scalar, twoPhaseMethod, K_scalar, L_scalar, fluid_state_scalar, verbosity);
+            //}
         } else {
             // Cell is one-phase. Use Li's phase labeling method to see if it's liquid or vapor
             L_scalar = li_single_phase_label_(fluid_state_scalar, z_scalar, verbosity);
-        }
+        } */
         fluid_state_scalar.setLvalue(L_scalar);
 
         // Print footer

@@ -384,8 +384,8 @@ public:
             const Evaluation& So =
                 decay<Evaluation>(fluidState.saturation(oilPhaseIdx));
 
-            values[oilPhaseIdx] = GasOilMaterialLaw::twoPhaseSatKrw(params.gasOilParams(), So);
-            values[gasPhaseIdx] = GasOilMaterialLaw::twoPhaseSatKrn(params.gasOilParams(), So);
+            values[0] = So; // GasOilMaterialLaw::twoPhaseSatKrw(params.gasOilParams(), So);
+            values[1] = 1 - So; // GasOilMaterialLaw::twoPhaseSatKrn(params.gasOilParams(), So);
             break;
         }
 

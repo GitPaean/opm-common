@@ -33,6 +33,8 @@
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #endif
 
+#include <opm/material/fluidsystems/blackoilpvt/WaterPvtMultiplexer.hpp>
+
 #include <opm/material/eos/PengRobinsonMixture.hpp>
 #include <opm/material/fluidsystems/BaseFluidSystem.hpp>
 #include <opm/material/fluidsystems/PTFlashParameterCache.hpp> // TODO: this is something else need to check
@@ -59,16 +61,16 @@ namespace Opm {
     class GenericOilGasFluidSystem : public BaseFluidSystem<Scalar, GenericOilGasFluidSystem<Scalar, NumComp> > {
     public:
         // TODO: I do not think these should be constant in fluidsystem, will try to make it non-constant later
-        static constexpr int numPhases = 2;
+        static constexpr int numPhases = 3;
         static constexpr int numComponents = NumComp;
         static constexpr int numMisciblePhases = 2;
         // \Note: not totally sure when we should distinguish numMiscibleComponents and numComponents.
         // Possibly when with a dummy phase like water?
         static constexpr int numMiscibleComponents = NumComp;
         // TODO: phase location should be more general
-        static constexpr int waterPhaseIdx = -1;
-        static constexpr int oilPhaseIdx = 0;
-        static constexpr int gasPhaseIdx = 1;
+        static constexpr int waterPhaseIdx = 0;
+        static constexpr int oilPhaseIdx = 1;
+        static constexpr int gasPhaseIdx = 2;
 
         static constexpr int waterCompIdx = -1;
         static constexpr int oilCompIdx = 0;
@@ -79,6 +81,7 @@ namespace Opm {
         using ParameterCache = Opm::PTFlashParameterCache<ValueType, GenericOilGasFluidSystem<Scalar, NumComp>>;
         using ViscosityModel = Opm::ViscosityModels<Scalar, GenericOilGasFluidSystem<Scalar, NumComp>>;
         using PengRobinsonMixture = Opm::PengRobinsonMixture<Scalar, GenericOilGasFluidSystem<Scalar, NumComp>>;
+        using WaterPvt = WaterPvtMultiplexer<Scalar>;
 
         struct ComponentParam {
             std::string name;
@@ -101,7 +104,7 @@ namespace Opm {
 
         static bool phaseIsActive(unsigned phaseIdx)
         {
-            return phaseIdx == oilPhaseIdx || phaseIdx == gasPhaseIdx;
+            return phaseIdx == oilPhaseIdx || phaseIdx == gasPhaseIdx || phaseIdx == waterPhaseIdx;
         }
 
         template<typename Param>
@@ -123,7 +126,7 @@ namespace Opm {
         /*!
          * \brief Initialize the fluid system using an ECL deck object
          */
-        static void initFromState(const EclipseState& eclState, const Schedule& /* schedule */)
+        static void initFromState(const EclipseState& eclState, const Schedule& schedule)
         {
             // TODO: we are not considering the EOS region for now
             const auto& comp_config = eclState.compositionalConfig();
@@ -148,11 +151,16 @@ namespace Opm {
             }
             FluidSystem::printComponentParams();
             interaction_coefficients_ = comp_config.binaryInteractionCoefficient(0);
+
+            // Init. water pvt from deck
+            waterPvt_->initFromState(eclState, schedule);
+
         }
 #endif // HAVE_ECL_INPUT
 
         static void init()
         {
+            waterPvt_ = std::make_unique<WaterPvt>();
             component_param_.reserve(numComponents);
         }
 
@@ -235,7 +243,8 @@ namespace Opm {
         //! \copydoc BaseFluidSystem::phaseName
         static std::string_view phaseName(unsigned phaseIdx)
         {
-                static const std::string_view name[] = {"o",  // oleic phase
+                static const std::string_view name[] = {"w",  // aqueous phase
+                                                        "o",  // oleic phase
                                                         "g"};  // gas phase
 
                 assert(phaseIdx < numPhases);
@@ -265,6 +274,13 @@ namespace Opm {
             if (phaseIdx == oilPhaseIdx || phaseIdx == gasPhaseIdx) {
                 return decay<LhsEval>(fluidState.averageMolarMass(phaseIdx) / paramCache.molarVolume(phaseIdx));
             }
+            else {
+                const LhsEval& p = decay<LhsEval>(fluidState.pressure(phaseIdx));
+                const LhsEval& T = decay<LhsEval>(fluidState.temperature(phaseIdx));
+                const Scalar& rho_w_ref = waterPvt_->waterReferenceDensity(0);
+                const LhsEval& bw = waterPvt_->inverseFormationVolumeFactor(0, T, p, LhsEval(0.0), LhsEval(0.0));
+                return rho_w_ref * bw;
+            }
 
             return {};
         }
@@ -277,8 +293,16 @@ namespace Opm {
         {
             assert(isConsistent());
             assert(phaseIdx < numPhases);
-            // Use LBC method to calculate viscosity
-            return decay<LhsEval>(ViscosityModel::LBC(fluidState, paramCache, phaseIdx));
+
+            if (phaseIdx == oilPhaseIdx || phaseIdx == gasPhaseIdx) {
+                // Use LBC method to calculate viscosity
+                return decay<LhsEval>(ViscosityModel::LBC(fluidState, paramCache, phaseIdx));
+            }
+            else {
+                const LhsEval& p = decay<LhsEval>(fluidState.pressure(phaseIdx));
+                const LhsEval& T = decay<LhsEval>(fluidState.temperature(phaseIdx));
+                return waterPvt_->viscosity(0, T, p, LhsEval(0.0), LhsEval(0.0));
+            }
         }
 
         //! \copydoc BaseFluidSystem::fugacityCoefficient
@@ -288,6 +312,9 @@ namespace Opm {
                                            unsigned phaseIdx,
                                            unsigned compIdx)
         {
+            if (phaseIdx == waterPhaseIdx)
+                return LhsEval(0.0);
+
             assert(isConsistent());
             assert(phaseIdx < numPhases);
             assert(compIdx < numComponents);
@@ -317,7 +344,7 @@ namespace Opm {
         {
             assert(phaseIdx < numPhases);
 
-            return (phaseIdx == 0);
+            return (phaseIdx == oilPhaseIdx);
         }
 
         //! \copydoc BaseFluidSystem::isIdealGas
@@ -325,7 +352,7 @@ namespace Opm {
         {
             assert(phaseIdx < numPhases);
 
-            return (phaseIdx == 1);
+            return (phaseIdx == gasPhaseIdx);
         }
         // the following funcitons are needed to compile the GenericOutputBlackoilModule
         // not implemented for this FluidSystem yet
@@ -404,6 +431,7 @@ namespace Opm {
 
         static std::vector<ComponentParam> component_param_;
         static std::vector<Scalar> interaction_coefficients_;
+        static std::unique_ptr<WaterPvt> waterPvt_;
 
     public:
         static std::string printComponentParams() {
@@ -428,5 +456,10 @@ namespace Opm {
     template <class Scalar, int NumComp>
     std::vector<Scalar>
     GenericOilGasFluidSystem<Scalar, NumComp>::interaction_coefficients_;
+    
+    template <class Scalar, int NumComp>
+    std::unique_ptr<WaterPvtMultiplexer<Scalar> > 
+    GenericOilGasFluidSystem<Scalar, NumComp>::waterPvt_;
+
 }
 #endif // OPM_GENERICOILGASFLUIDSYSTEM_HPP

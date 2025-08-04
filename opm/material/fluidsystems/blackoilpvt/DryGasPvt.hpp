@@ -207,9 +207,9 @@ public:
     template <class Evaluation = Scalar>
     Evaluation saturatedWaterVaporizationFactor(unsigned /*regionIdx*/,
                                               const Evaluation& /*temperature*/,
-                                              const Evaluation& /*pressure*/,
+                                              const Evaluation& pressure,
                                               const Evaluation& /*saltConcentration*/) const
-    { return 0.0; }
+    { return 0.0 * pressure; }
 
     /*!
      * \brief Returns the oil vaporization factor \f$R_v\f$ [m^3/m^3] of the oil phase.
@@ -217,10 +217,10 @@ public:
     template <class Evaluation>
     Evaluation saturatedOilVaporizationFactor(unsigned /*regionIdx*/,
                                               const Evaluation& /*temperature*/,
-                                              const Evaluation& /*pressure*/,
+                                              const Evaluation& pressure,
                                               const Evaluation& /*oilSaturation*/,
                                               const Evaluation& /*maxOilSaturation*/) const
-    { return 0.0; /* this is dry gas! */ }
+    { return 0.0 * pressure; /* this is dry gas! */ }
 
     /*!
      * \brief Returns the oil vaporization factor \f$R_v\f$ [m^3/m^3] of the oil phase.
@@ -228,8 +228,8 @@ public:
     template <class Evaluation>
     Evaluation saturatedOilVaporizationFactor(unsigned /*regionIdx*/,
                                               const Evaluation& /*temperature*/,
-                                              const Evaluation& /*pressure*/) const
-    { return 0.0; /* this is dry gas! */ }
+                                              const Evaluation& pressure) const
+    { return 0.0 * pressure; /* this is dry gas! */ }
 
     template <class Evaluation>
     Evaluation diffusionCoefficient(const Evaluation& /*temperature*/,

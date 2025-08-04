@@ -168,8 +168,8 @@ public:
             return internalEnergyCurves_[regionIdx].eval(temperature, /*extrapolate=*/true);
         }
         else {
-            Evaluation Tref = watdentRefTemp_[regionIdx];
-            Evaluation Pref = watJTRefPres_[regionIdx];
+            Evaluation Tref = 0.* pressure + watdentRefTemp_[regionIdx];
+            Evaluation Pref = 0.* pressure + watJTRefPres_[regionIdx];
             Scalar JTC = watJTC_[regionIdx]; // if JTC is default then JTC is calculated
 
             Evaluation invB = inverseFormationVolumeFactor(regionIdx, temperature, pressure, Rsw, saltconcentration);
@@ -189,7 +189,7 @@ public:
 
                 constexpr const int N = 100; // value is experimental
                 Evaluation deltaP = (pressure - Pref) / N;
-                Evaluation enthalpyPresPrev = 0;
+                Evaluation enthalpyPresPrev = 0 * pressure;
                 for (std::size_t i = 0; i < N; ++i) {
                     Evaluation Pnew = Pref + i * deltaP;
                     Evaluation rho = inverseFormationVolumeFactor(regionIdx, temperature,
@@ -270,7 +270,7 @@ public:
                                                      const Evaluation& pressure,
                                                      const Evaluation& saltconcentration) const
     {
-        Evaluation Rsw = 0.0;
+        Evaluation Rsw = 0.0 * pressure;
         return inverseFormationVolumeFactor(regionIdx, temperature, pressure,
                                             Rsw, saltconcentration);
     }
@@ -312,10 +312,10 @@ public:
      */
     template <class Evaluation>
     Evaluation saturationPressure(unsigned /*regionIdx*/,
-                                  const Evaluation& /*temperature*/,
+                                  const Evaluation& temperature,
                                   const Evaluation& /*Rs*/,
                                   const Evaluation& /*saltconcentration*/) const
-    { return 0.0; /* this is dead water, so there isn't any meaningful saturation pressure! */ }
+    { return 0.0 * temperature; /* this is dead water, so there isn't any meaningful saturation pressure! */ }
 
     /*!
      * \brief Returns the gas dissolution factor \f$R_s\f$ [m^3/m^3] of the water phase.
@@ -323,9 +323,9 @@ public:
     template <class Evaluation>
     Evaluation saturatedGasDissolutionFactor(unsigned /*regionIdx*/,
                                              const Evaluation& /*temperature*/,
-                                             const Evaluation& /*pressure*/,
+                                             const Evaluation& pressure,
                                              const Evaluation& /*saltconcentration*/) const
-    { return 0.0; /* this is dead water! */ }
+    { return 0.0 * pressure; /* this is dead water! */ }
 
     template <class Evaluation>
     Evaluation diffusionCoefficient(const Evaluation& /*temperature*/,

@@ -1263,9 +1263,9 @@ public:
         const auto& saltConcentration = decay<LhsEval>(fluidState.saltConcentration());
 
         switch (phaseIdx) {
-        case oilPhaseIdx: return 0.0;
+        case oilPhaseIdx: return 0.0 * p;
         case gasPhaseIdx: return gasPvt_->saturatedWaterVaporizationFactor(regionIdx, T, p, saltConcentration);
-        case waterPhaseIdx: return 0.0;
+        case waterPhaseIdx: return 0.0 * p;
         default: throw std::logic_error("Unhandled phase index "+std::to_string(phaseIdx));
         }
     }

@@ -159,10 +159,10 @@ public:
         else {
             // NB should probably be revisited with adding more or restrict to linear internal energy
             OpmLog::warning("Experimental code for jouleThomson: simulation will be slower");
-            Evaluation Tref = gasdentRefTemp_[regionIdx];
-            Evaluation Pref = gasJTRefPres_[regionIdx];
+            Evaluation Tref = 0. * pressure + gasdentRefTemp_[regionIdx];
+            Evaluation Pref = 0. * pressure + gasJTRefPres_[regionIdx];
             Scalar JTC = gasJTC_[regionIdx]; // if JTC is default then JTC is calculaited
-            Evaluation Rvw = 0.0;
+            Evaluation Rvw = 0.0 * pressure;
 
             Evaluation invB = inverseFormationVolumeFactor(regionIdx, temperature, pressure, Rv, Rvw);
             // NB this assumes internalEnergyCurve(0) = 0 derivative should be used add Cp table ??
@@ -182,7 +182,7 @@ public:
 
                 constexpr const int N = 100; // value is experimental
                 Evaluation deltaP = (pressure - Pref)/N;
-                Evaluation enthalpyPresPrev = 0;
+                Evaluation enthalpyPresPrev = 0 * pressure;
                 for (std::size_t i = 0; i < N; ++i) {
                     Evaluation Pnew = Pref + i * deltaP;
                     Evaluation rho = inverseFormationVolumeFactor(regionIdx, temperature, Pnew, Rv, Rvw) *
@@ -251,7 +251,7 @@ public:
                                             const Evaluation& Rv,
                                             const Evaluation& /*Rvw*/) const
     {
-        const Evaluation& Rvw = 0.0;
+        const Evaluation& Rvw = 0.0 * pressure;
         const auto& b =
             isothermalPvt_->inverseFormationVolumeFactor(regionIdx, temperature,
                                                          pressure, Rv, Rvw);
@@ -320,9 +320,9 @@ public:
     template <class Evaluation = Scalar>
     Evaluation saturatedWaterVaporizationFactor(unsigned /*regionIdx*/,
                                                 const Evaluation& /*temperature*/,
-                                                const Evaluation& /*pressure*/,
+                                                const Evaluation& pressure,
                                                 const Evaluation& /*saltConcentration*/) const
-    { return 0.0; }
+    { return 0.0 * pressure; }
 
     /*!
      * \brief Returns the oil vaporization factor \f$R_v\f$ [m^3/m^3] of the gas phase.

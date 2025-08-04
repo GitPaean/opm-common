@@ -159,7 +159,7 @@ public:
                                                     const Evaluation& pressure,
                                                     const Evaluation& saltconcentration) const
     {
-        Evaluation Rsw = 0.0;
+        Evaluation Rsw = 0.0 * pressure;
         return inverseFormationVolumeFactor(regionIdx, temperature, pressure,
                                             Rsw, saltconcentration);
     }
@@ -202,9 +202,9 @@ public:
     template <class Evaluation>
     Evaluation saturatedGasDissolutionFactor(unsigned /*regionIdx*/,
                                              const Evaluation& /*temperature*/,
-                                             const Evaluation& /*pressure*/,
+                                             const Evaluation& pressure,
                                              const Evaluation& /*saltconcentration*/) const
-    { return 0.0; /* this is dead water! */ }
+    { return 0.0 * pressure; /* this is dead water! */ }
 
     template <class Evaluation>
     Evaluation diffusionCoefficient(const Evaluation& /*temperature*/,

@@ -425,7 +425,7 @@ private:
             return 18.1 + 3.137e-2 * (temperature - 373.15);
         }
         else {
-            return 18.1;
+            return 0. * temperature + 18.1;
         }
     }
 
@@ -457,7 +457,7 @@ private:
                 temperatureCelcius * (c[3] + temperatureCelcius * c[4])));
         }
         else {
-            return 1.0;
+            return 0. * temperature + 1.0;
         }
     }
 
@@ -476,7 +476,7 @@ private:
             return exp(lnGammaCO2);
         }
         else {
-            return 1.0;
+            return 0. * temperature + 1.0;
         }
     }
 
@@ -495,7 +495,7 @@ private:
             return exp(lnGammaH2O);
         }
         else {
-            return 1.0;
+            return 0. * temperature + 1.0;
         }
     }
 
@@ -563,8 +563,8 @@ private:
         OPM_TIMEFUNCTION_LOCAL();
 	    // Start point for fixed-point iterations as recommended below in section 2.2
         Evaluation yH2O = H2O::vaporPressure(temperature) / pg;  // ideal mixing
-        Evaluation xCO2 = 0.009;  // same as ~0.5 mol/kg
-        Evaluation gammaNaCl = 1.0;  // default salt activity coeff = 1.0
+        Evaluation xCO2 = 0.* temperature + 0.009;  // same as ~0.5 mol/kg
+        Evaluation gammaNaCl = 0. * temperature + 1.0;  // default salt activity coeff = 1.0
 
         // We can pre-calculate Duan-Sun, Spycher & Pruess (2009) salt activity coeff.
         if (m_NaCl > 0.0 && activityModel == 2) {
@@ -620,7 +620,7 @@ private:
                                                                 bool extrapolate = false)
     {
         // Calculate activity coefficient for salt
-        Evaluation gammaNaCl = 1.0;
+        Evaluation gammaNaCl = 0. * temperature + 1.0;
         if (m_NaCl > 0.0 && activityModel > 0 && activityModel < 3) {
             gammaNaCl = activityCoefficientSalt_(temperature, pg, m_NaCl, Evaluation(0.0), activityModel);
         }

@@ -144,9 +144,9 @@ public:
 
         OPM_TIMEFUNCTION_LOCAL();
         if (T > criticalTemperature())
-            return criticalPressure();
+            return 0. * T + criticalPressure();
         if (T < tripleTemperature())
-            return 0; // water is solid: We don't take sublimation into account
+            return 0. * T; // water is solid: We don't take sublimation into account
 
         static constexpr Scalar n[10] = {
             0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2,

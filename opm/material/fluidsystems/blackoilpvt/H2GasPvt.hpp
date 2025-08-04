@@ -294,7 +294,7 @@ private:
     {
         // If water vaporization is disabled, we return zero
         if (!enableVaporization_) {
-            return 0.0;
+            return 0.0 * pressure;
         }
 
         // From Li et al., Int. J. Hydrogen Energ., 2018, water mole fraction is calculated assuming ideal mixing

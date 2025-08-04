@@ -199,7 +199,7 @@ public:
                                             const Evaluation& Rv,
                                             const Evaluation& Rvw) const
     {
-        const Evaluation& temperature = 1E30;
+        const Evaluation temperature = 0. * pressure + 1E30;
 
         if (Rv >= (1.0 - 1e-10) * saturatedOilVaporizationFactor(regionIdx, temperature, pressure)) {
             return inverseGasBRvSat_[regionIdx].eval(pressure, Rvw, /*extrapolate=*/true);

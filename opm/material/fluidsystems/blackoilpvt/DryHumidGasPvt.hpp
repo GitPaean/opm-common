@@ -262,8 +262,8 @@ public:
     template <class Evaluation>
     Evaluation saturatedOilVaporizationFactor(unsigned /*regionIdx*/,
                                               const Evaluation& /*temperature*/,
-                                              const Evaluation& /*pressure*/) const
-    { return 0.0; /* this is dry humid gas! */ }
+                                              const Evaluation& pressure) const
+    { return 0.0 * pressure; /* this is dry humid gas! */ }
 
     /*!
      * \brief Returns the saturation pressure of the gas phase [Pa]

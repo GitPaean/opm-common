@@ -526,7 +526,7 @@ public:
     {
         OPM_TIMEFUNCTION_LOCAL();
         if (!enableDissolution_) {
-            return 0.0;
+            return 0.0 * pressure;
         }
 
         // calulate the equilibrium composition for the given
@@ -783,7 +783,7 @@ private:
             return saltConcentration/H2O::liquidDensity(T, P, true);
         }
 
-        return salinity(regionIdx);
+        return 0. * P + salinity(regionIdx);
     }
 
     template <class ViewType, class OutputParams, class InputParams, class ContainerType, class ScalarT>

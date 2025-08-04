@@ -491,7 +491,7 @@ private:
         // (apparent) molar volume of H2, Eq. (14) in Li et al. (2018)
         const LhsEval& A1 = 51.1904 - 0.208062 * temperature +
                             3.4427e-4 * temperature * temperature;
-        const LhsEval& A2 = -0.022;
+        const LhsEval& A2 = 0. * temperature -0.022;
         // pressure in [MPa] and Vphi in [m3/mol] (from [cm3/mol])
         const LhsEval& V_phi = (A1 + A2 * (pl / 1e6)) / 1e6;
 
@@ -580,7 +580,7 @@ private:
     {
         // Return Rs=0.0 if dissolution is disabled
         if (!enableDissolution_)
-            return 0.0;
+            return 0.0 * pressure;
 
         // calulate the equilibrium composition for the given temperature and pressure
         LhsEval xlH2 = BinaryCoeffBrineH2::calculateMoleFractions(temperature, pressure,
@@ -668,7 +668,7 @@ private:
             return saltConcentration/H2O::liquidDensity(T, P, true);
         }
 
-        return salinity(regionIdx);
+        return 0.* P + salinity(regionIdx);
     }
 
     std::vector<Scalar> brineReferenceDensity_{};

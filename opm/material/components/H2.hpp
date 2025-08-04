@@ -497,19 +497,19 @@ public:
     {
         // Eq. (32), which can be compared with Eq. (55) in Span et al. (2000)
         // First sum term
-        Evaluation s1 = 0.0;
+        Evaluation s1 = 0.0 * T_red;
         for (int i = 0; i < 7; ++i) {
             s1 += N_[i] * pow(rho_red, d_[i]) * pow(T_red, t_[i]);
         }
 
         // Second sum term
-        Evaluation s2 = 0.0;
+        Evaluation s2 = 0.0 * T_red;
         for (int i = 7; i < 9; ++i) {
             s2 += N_[i] * pow(T_red, t_[i]) * pow(rho_red, d_[i]) * exp(-pow(rho_red, p_[i-7]));
         }
 
         // Third, and last, sum term
-        Evaluation s3 = 0.0;
+        Evaluation s3 = 0.0 * T_red;
         for (int i = 9; i < 14; ++i) {
             s3 += N_[i] * pow(T_red, t_[i]) * pow(rho_red, d_[i]) * 
                 exp(phi_[i-9] * pow(rho_red - D_[i-9], 2) + beta_[i-9] * pow(T_red - gamma_[i-9], 2));
@@ -531,20 +531,20 @@ public:
     {
         // Derivative of Eq. (32) wrt to reduced density, which can be compared with Eq. (81) in Span et al. (2000)
         // First sum term 
-        Evaluation s1 = 0.0;
+        Evaluation s1 = 0.0 * T_red;
         for (int i = 0; i < 7; ++i) {
             s1 += d_[i] * N_[i] * pow(rho_red, d_[i]-1) * pow(T_red, t_[i]);
         }
 
         // Second sum term
-        Evaluation s2 = 0.0;
+        Evaluation s2 = 0.0 * T_red;
         for (int i = 7; i < 9; ++i) {
             s2 += N_[i] * pow(T_red, t_[i]) * pow(rho_red, d_[i]-1) * exp(-pow(rho_red, p_[i-7])) *
                 (d_[i] - p_[i-7]*pow(rho_red, p_[i-7]));
         }
 
         // Third, and last, sum term
-        Evaluation s3 = 0.0;
+        Evaluation s3 = 0.0 * T_red;
         for (int i = 9; i < 14; ++i) {
             s3 += N_[i] * pow(T_red, t_[i]) * pow(rho_red, d_[i]-1) * 
                 exp(phi_[i-9] * pow(rho_red - D_[i-9], 2) + beta_[i-9] * pow(T_red - gamma_[i-9], 2)) *

@@ -240,9 +240,9 @@ public:
     template <class Evaluation = Scalar>
     Evaluation saturatedWaterVaporizationFactor(unsigned /*regionIdx*/,
                                                 const Evaluation& /*temperature*/,
-                                                const Evaluation& /*pressure*/,
+                                                const Evaluation& pressure,
                                                 const Evaluation& /*saltConcentration*/) const
-    { return 0.0; }
+    { return 0.0 * pressure; }
 
     /*!
      * \brief Returns the oil vaporization factor \f$R_v\f$ [m^3/m^3] of the gas phase.

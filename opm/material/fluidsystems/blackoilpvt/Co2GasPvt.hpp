@@ -178,7 +178,7 @@ public:
 
         assert(gastype_ == Co2StoreConfig::GasMixingType::IDEAL);
         // account for H2O in the gas phase
-        Evaluation result = 0;
+        Evaluation result = 0 * pressure;
         // The CO2STORE option both works for GAS/WATER and GAS/OIL systems
         // Either rv og rvw should be zero
         assert(rv == 0.0 || rvw == 0.0);
@@ -377,7 +377,7 @@ private:
     {
         OPM_TIMEFUNCTION_LOCAL();
         if (!enableVaporization_) {
-            return 0.0;
+            return 0.0 * pressure;
         }
 
         // calulate the equilibrium composition for the given

@@ -358,7 +358,7 @@ public:
         // the boundary of the domain given by the samples, one gets the same
         // value as one would get by interpolating along the boundary curve
         // itself.
-        Evaluation shift = 0.0;
+        Evaluation shift = 0.0 * x;
         if (interpolationGuide_ == InterpolationPolicy::Vertical) {
             // Shift is zero, no need to reset it.
         } else {

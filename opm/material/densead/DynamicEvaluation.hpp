@@ -131,6 +131,22 @@ public:
         checkDefined_();
     }
 
+    // create a dynamic evaluation which represents a constant function
+    // a little different from the function above. We use zero number of
+    // derivatives, and the value is set to the given constant value.
+    //
+    // i.e., f(x) = c. this implies an evaluation with the given value and all
+    // derivatives being zero.
+    template <class RhsValueType>
+    OPM_HOST_DEVICE explicit Evaluation(const RhsValueType& c)
+            : data_(1, 0.0)
+    {
+        //clearDerivatives();
+        setValue(c);
+
+        checkDefined_();
+    }
+
     // create an evaluation representing a variable with the variable position of varPos
     // The value is set to c, all derivatives are zero except for the one at varPos, which is set to 1.
     template <class RhsValueType>
@@ -209,9 +225,10 @@ public:
     // "evaluate" a constant function (i.e. a function that does not depend on the set of
     // relevant variables, f(x) = c).
     template <class RhsValueType>
-    OPM_HOST_DEVICE static Evaluation createConstant(const RhsValueType&)
+    OPM_HOST_DEVICE static Evaluation createConstant(const RhsValueType& value)
     {
-        throw std::logic_error("Dynamically-sized evaluation objects require to specify the number of derivatives.");
+        // using an evaluation without 
+        return Evaluation(0, value);
     }
 
     // "evaluate" a constant function (i.e. a function that does not depend on the set of

@@ -132,19 +132,14 @@ public:
     }
 
     // create a dynamic evaluation which represents a constant function
-    // a little different from the function above. We use zero number of
-    // derivatives, and the value is set to the given constant value.
+    // by using zero number of derivatives.
     //
     // i.e., f(x) = c. this implies an evaluation with the given value and all
     // derivatives being zero.
     template <class RhsValueType>
     OPM_HOST_DEVICE Evaluation(const RhsValueType& c)
-            : data_(1, 0.0)
+            : Evaluation(0, c)
     {
-        //clearDerivatives();
-        setValue(c);
-
-        checkDefined_();
     }
 
     // create an evaluation representing a variable with the variable position of varPos
@@ -228,7 +223,7 @@ public:
     OPM_HOST_DEVICE static Evaluation createConstant(const RhsValueType& value)
     {
         // using an evaluation without derivatives
-        return Evaluation(0, value);
+        return Evaluation(value);
     }
 
     // "evaluate" a constant function (i.e. a function that does not depend on the set of
@@ -256,7 +251,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         if (thisSize == otherSize) {
             for (int i = 0; i < length_(); ++i)
@@ -264,17 +259,21 @@ public:
             return *this;
         }
         if (otherSize == 0) {
-            data_[valuepos_()] += other.value();
+            *this += other.value();
             return *this;
         }
         if (thisSize == 0) {
             assert(otherSize > 0);
             this->appendDerivativesToConstant(otherSize);
-            for (int i = 0; i < other.length_(); ++i)
-                data_[i] += other.data_[i];
+            data_[valuepos_()] += other.data_[valuepos_()];
+            for (int i = dstart_(); i < dend_(); ++i)
+                data_[i] = other.data_[i];
             return *this;
         }
-        throw std::logic_error("Cannot operate Evaluations with different number of derivatives");
+        throw std::logic_error(
+                "Cannot operate Evaluations with different number of derivatives "
+                "unless one of them has no derivatives"
+        );
     }
 
     // add value from other to this values
@@ -294,7 +293,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         if (thisSize == otherSize) {
             for (int i = 0; i < length_(); ++i)
@@ -302,7 +301,7 @@ public:
             return *this;
         }
         if (otherSize == 0) {
-            data_[valuepos_()] -= other.value();
+            *this -= other.value();
             return *this;
         }
         if (thisSize == 0) {
@@ -312,7 +311,10 @@ public:
                 data_[i] -= other.data_[i];
             return *this;
         }
-        throw std::logic_error("Cannot operate Evaluations with different number of derivatives");
+        throw std::logic_error(
+                "Cannot operate Evaluations with different number of derivatives "
+                "unless one of them has no derivatives"
+        );
     }
 
     // subtract other's value from this values
@@ -332,7 +334,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         if (thisSize == otherSize) {
             // while the values are multiplied, the derivatives follow the product rule,
@@ -351,9 +353,7 @@ public:
         }
 
         if (otherSize == 0) {
-            for (int i = 0; i < length_(); ++i) {
-                data_[i] *= other.value();
-            }
+            *this *= other.value();
             return *this;
         }
 
@@ -366,7 +366,10 @@ public:
             }
             return *this;
         }
-        throw std::logic_error("Cannot operate Evaluations with different number of derivatives");
+        throw std::logic_error(
+                "Cannot operate Evaluations with different number of derivatives "
+                "unless one of them has no derivatives"
+        );
     }
 
     // m(c*u)' = c*u'
@@ -386,15 +389,30 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
+
+        if (thisSize == otherSize) {
+            // while the values are divided, the derivatives follow the rule for division,
+            // i.e., (u/v)' = (v'u - u'v)/v^2.
+            const ValueType& u = data_[valuepos_()];
+            const ValueType& v = other.value();
+
+            // value
+            data_[valuepos_()] /= v;
+
+            // derivatives
+            for (int idx = dstart_(); idx < dend_(); ++idx) {
+                const ValueType& uPrime = data_[idx];
+                const ValueType& vPrime = other.data_[idx];
+
+                data_[idx] = (v*uPrime - u*vPrime)/(v*v);
+            }
+
+            return *this;
+        }
 
         if (otherSize == 0) {
-            // if other is a constant, we divide all values and derivatives by the value
-            const ValueType tmp = 1.0 / other.value();
-
-            for (int i = 0; i < length_(); ++i)
-                data_[i] *= tmp;
-
+            *this /= other.value();
             return *this;
         }
 
@@ -402,21 +420,23 @@ public:
             assert(otherSize > 0);
             // if this is a constant, we divide all values and derivatives by the value
             this->appendDerivativesToConstant(otherSize);
+
+            // values are divided, derivatives follow the rule for division, i.e., (u/v)' = (v'u -
+            // u'v)/v^2.
+            ValueType& u = data_[valuepos_()];
+            const ValueType& v = other.value();
+            for (int idx = dstart_(); idx < dend_(); ++idx) {
+                const ValueType& vPrime = other.data_[idx];
+                data_[idx] =  -u * vPrime / (v * v);
+            }
+            u /= v;
+
+            return *this;
         }
-
-        // values are divided, derivatives follow the rule for division, i.e., (u/v)' = (v'u -
-        // u'v)/v^2.
-        ValueType& u = data_[valuepos_()];
-        const ValueType& v = other.value();
-        for (int idx = dstart_(); idx < dend_(); ++idx) {
-            const ValueType& uPrime = data_[idx];
-            const ValueType& vPrime = other.data_[idx];
-
-            data_[idx] = (v*uPrime - u*vPrime)/(v*v);
-        }
-        u /= v;
-
-        return *this;
+        throw std::logic_error(
+                "Cannot operate Evaluations with different number of derivatives "
+                "unless one of them has no derivatives"
+        );
     }
 
     // divide value and derivatives by value of other
@@ -438,14 +458,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
-
-        if (thisSize == 0) {
-            // if this is a constant, we add all values and derivatives to the value of other
-            Evaluation result(other);
-            result.data_[valuepos_()] += this->value();
-            return result;
-        }
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         Evaluation result(*this);
 
@@ -472,14 +485,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
-
-        if (thisSize == 0) {
-            // if this is a constant, we add all values and derivatives to the value of other
-            Evaluation result(-other);
-            result.data_[valuepos_()] += this->value();
-            return result;
-        }
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         Evaluation result(*this);
 
@@ -517,16 +523,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
-
-        if (thisSize == 0) {
-            // if this is a constant, we multiply all values and derivatives by the value of other
-            Evaluation result(other);
-            for (int i = 0; i < result.length_(); ++i) {
-                result.data_[i] *= this->value();
-            }
-            return result;
-        }
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         Evaluation result(*this);
 
@@ -551,7 +548,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         Evaluation result(*this);
 
@@ -592,7 +589,7 @@ public:
         const int otherSize = other.size();
 
         // Allow operation if sizes match or one is constant (size == 0)
-        assert(thisSize == otherSize || thisSize * otherSize == 0);
+        assert(thisSize == otherSize || thisSize == 0 || otherSize == 0);
 
         if (thisSize == otherSize) {
             for (int idx = 0; idx < length_(); ++idx) {
@@ -619,7 +616,7 @@ public:
 
     OPM_HOST_DEVICE bool operator>(const Evaluation& other) const
     {
-        assert(size() == other.size() || size() * other.size() == 0);
+        assert(size() == other.size() || size() == 0 || other.size() == 0);
 
         return value() > other.value();
     }
@@ -630,7 +627,7 @@ public:
 
     OPM_HOST_DEVICE bool operator<(const Evaluation& other) const
     {
-        assert(size() == other.size() || size() * other.size() == 0);
+        assert(size() == other.size() || size() == 0 || other.size() == 0);
 
         return value() < other.value();
     }
@@ -641,7 +638,7 @@ public:
 
     OPM_HOST_DEVICE bool operator>=(const Evaluation& other) const
     {
-        assert(size() == other.size() || size() * other.size() == 0);
+        assert(size() == other.size() || size() == 0 || other.size() == 0);
 
         return value() >= other.value();
     }
@@ -652,7 +649,7 @@ public:
 
     OPM_HOST_DEVICE bool operator<=(const Evaluation& other) const
     {
-        assert(size() == other.size() || size() * other.size() == 0);
+        assert(size() == other.size() || size() == 0 || other.size() == 0);
 
         return value() <= other.value();
     }

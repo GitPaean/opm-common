@@ -45,6 +45,7 @@
 #include <opm/material/common/HasMemberGeneratorMacros.hpp>
 #include <opm/material/fluidsystems/NullParameterCache.hpp>
 #include <opm/material/fluidsystems/BlackOilFunctions.hpp>
+#include <opm/material/fluidsystems/PhaseUsageInfo.hpp>
 
 #include <array>
 #include <cstddef>
@@ -424,20 +425,15 @@ public:
     //! Index of the gas component
     static constexpr int gasCompIdx = IndexTraits::gasCompIdx;
 
-protected:
-    STATIC_OR_NOTHING unsigned char numActivePhases_;
-    STATIC_OR_NOTHING std::array<bool,numPhases> phaseIsActive_;
-
 public:
     //! \brief Returns the number of active fluid phases (i.e., usually three)
     STATIC_OR_DEVICE unsigned numActivePhases() NOTHING_OR_CONST
-    { return numActivePhases_; }
+    { return phaseUsageInfo_.numActivePhases(); }
 
     //! \brief Returns whether a fluid phase is active
     STATIC_OR_DEVICE bool phaseIsActive(unsigned phaseIdx) NOTHING_OR_CONST
     {
-        assert(phaseIdx < numPhases);
-        return phaseIsActive_[phaseIdx];
+        return phaseUsageInfo_.phaseIsActive(phaseIdx);
     }
 
     //! \brief returns the index of "primary" component of a phase (solvent)
@@ -1748,8 +1744,7 @@ private:
     STATIC_OR_NOTHING Storage<std::array<Scalar, /*numComponents=*/3> > molarMass_;
     STATIC_OR_NOTHING Storage<std::array<Scalar, /*numComponents=*/3 * /*numPhases=*/3> > diffusionCoefficients_;
 
-    STATIC_OR_NOTHING std::array<short, numPhases> activeToCanonicalPhaseIdx_;
-    STATIC_OR_NOTHING std::array<short, numPhases> canonicalToActivePhaseIdx_;
+    STATIC_OR_NOTHING PhaseUsageInfo<IndexTraits> phaseUsageInfo_;
 
     STATIC_OR_NOTHING bool isInitialized_;
     STATIC_OR_NOTHING bool useSaturatedTables_;
@@ -1760,8 +1755,7 @@ private:
     explicit FLUIDSYSTEM_CLASSNAME(const FLUIDSYSTEM_CLASSNAME_STATIC<Scalar, IndexTraits, StorageT>& other)
         : surfacePressure(other.surfacePressure)
         , surfaceTemperature(other.surfaceTemperature)
-        , numActivePhases_(other.numActivePhases_)
-        , phaseIsActive_(other.phaseIsActive_)
+        , phaseUsageInfo_(other.phaseUsageInfo_)
         , reservoirTemperature_(other.reservoirTemperature_)
         , gasPvt_(other.gasPvt_)
         , oilPvt_(other.oilPvt_)
@@ -1774,8 +1768,6 @@ private:
         , referenceDensity_(StorageT<typename decltype(referenceDensity_)::value_type>(other.referenceDensity_))
         , molarMass_(StorageT<typename decltype(molarMass_)::value_type>(other.molarMass_))
         , diffusionCoefficients_(StorageT<typename decltype(diffusionCoefficients_)::value_type>(other.diffusionCoefficients_))
-        , activeToCanonicalPhaseIdx_(other.activeToCanonicalPhaseIdx_)
-        , canonicalToActivePhaseIdx_(other.canonicalToActivePhaseIdx_)
         , isInitialized_(other.isInitialized_)
         , useSaturatedTables_(other.useSaturatedTables_)
         , enthalpy_eq_energy_(other.enthalpy_eq_energy_)
@@ -1808,8 +1800,7 @@ initBegin(std::size_t numPvtRegions)
     surfacePressure = 1.01325e5; // [Pa]
     setReservoirTemperature(surfaceTemperature);
 
-    numActivePhases_ = numPhases;
-    std::fill_n(&phaseIsActive_[0], numPhases, true);
+    phaseUsageInfo_.initBegin();
 
     resizeArrays_(numPvtRegions);
 }
@@ -1852,15 +1843,8 @@ NOTHING_OR_DEVICE void FLUIDSYSTEM_CLASSNAME<Scalar,IndexTraits, Storage>::initE
         molarMass_[regionIdx][oilCompIdx] = 175e-3; // kg/mol
     }
 
+    phaseUsageInfo_.initEnd();
 
-    int activePhaseIdx = 0;
-    for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
-        if(phaseIsActive(phaseIdx)){
-            canonicalToActivePhaseIdx_[phaseIdx] = activePhaseIdx;
-            activeToCanonicalPhaseIdx_[activePhaseIdx] = phaseIdx;
-            activePhaseIdx++;
-        }
-    }
     isInitialized_ = true;
 }
 
@@ -1941,17 +1925,14 @@ template <class Scalar, class IndexTraits, template<typename> typename Storage>
 NOTHING_OR_DEVICE short FLUIDSYSTEM_CLASSNAME<Scalar,IndexTraits, Storage>::
 activeToCanonicalPhaseIdx(unsigned activePhaseIdx) NOTHING_OR_CONST
 {
-    assert(activePhaseIdx<numActivePhases());
-    return activeToCanonicalPhaseIdx_[activePhaseIdx];
+    return phaseUsageInfo_.activeToCanonicalPhaseIdx(activePhaseIdx);
 }
 
 template <class Scalar, class IndexTraits, template<typename> typename Storage>
 NOTHING_OR_DEVICE short FLUIDSYSTEM_CLASSNAME<Scalar,IndexTraits, Storage>::
 canonicalToActivePhaseIdx(unsigned phaseIdx) NOTHING_OR_CONST
 {
-    assert(phaseIdx<numPhases);
-    assert(phaseIsActive(phaseIdx));
-    return canonicalToActivePhaseIdx_[phaseIdx];
+    return phaseUsageInfo_.canonicalToActivePhaseIdx(phaseIdx);
 }
 
 template <class Scalar, class IndexTraits, template<typename> typename Storage>
@@ -1965,11 +1946,8 @@ resizeArrays_(std::size_t numRegions)
 #ifdef COMPILING_STATIC_FLUID_SYSTEM
 template <typename T> using BOFS = FLUIDSYSTEM_CLASSNAME<T, BlackOilDefaultFluidSystemIndices, VectorWithDefaultAllocator>;
 
-#define DECLARE_INSTANCE(T)                                                           \
-template<> unsigned char BOFS<T>::numActivePhases_;                                   \
-template<> std::array<bool, BOFS<T>::numPhases> BOFS<T>::phaseIsActive_;              \
-template<> std::array<short, BOFS<T>::numPhases> BOFS<T>::activeToCanonicalPhaseIdx_; \
-template<> std::array<short, BOFS<T>::numPhases> BOFS<T>::canonicalToActivePhaseIdx_; \
+#define DECLARE_INSTANCE(T) \
+template<> PhaseUsageInfo<BlackOilDefaultFluidSystemIndices> BOFS<T>::phaseUsageInfo_;\
 template<> T BOFS<T>::surfaceTemperature;                                             \
 template<> T BOFS<T>::surfacePressure;                                                \
 template<> T BOFS<T>::reservoirTemperature_;                                          \

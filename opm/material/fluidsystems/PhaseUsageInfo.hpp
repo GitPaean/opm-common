@@ -56,7 +56,7 @@ struct PhaseUsageInfo
 
     [[nodiscard]] short canonicalToActivePhaseIdx(unsigned phaseIdx) const {
         assert(phaseIdx<numPhases);
-        assert(phaseIsActive(phaseIdx));
+        if (!phaseIsActive(phaseIdx)) return -1;  // old phase_used return -1
         return canonicalToActivePhaseIdx_[phaseIdx];
     }
 

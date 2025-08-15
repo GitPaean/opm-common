@@ -92,6 +92,8 @@ public:
     using WaterPvt = std::conditional_t<std::is_same_v<Storage<Scalar>, VectorWithDefaultAllocator<Scalar>>,
                                         WaterPvtMultiplexer<Scalar>,
                                         BrineCo2Pvt<Scalar, Storage>>;
+    using IndexTraitsType = IndexTraits;
+
 
     #ifdef COMPILING_STATIC_FLUID_SYSTEM
     //! \copydoc BaseFluidSystem::ParameterCache

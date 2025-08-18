@@ -14,8 +14,8 @@ namespace Opm
 {
 
 template <class IndexTraits>
-struct PhaseUsageInfo
-{
+class PhaseUsageInfo {
+public:
     static constexpr int numPhases = 3;
 
     static constexpr int waterPhaseIdx = IndexTraits::waterPhaseIdx;

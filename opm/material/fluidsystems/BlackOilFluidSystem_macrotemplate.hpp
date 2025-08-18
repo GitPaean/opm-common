@@ -428,6 +428,11 @@ public:
     static constexpr int gasCompIdx = IndexTraits::gasCompIdx;
 
 public:
+
+    //! \brief Returns the number of active fluid phases (i.e., usually three)
+    STATIC_OR_DEVICE const PhaseUsageInfo<IndexTraits>& phaseUsage() NOTHING_OR_CONST
+    { return phaseUsageInfo_; }
+
     //! \brief Returns the number of active fluid phases (i.e., usually three)
     STATIC_OR_DEVICE unsigned numActivePhases() NOTHING_OR_CONST
     { return phaseUsageInfo_.numActivePhases(); }

@@ -194,6 +194,7 @@ public:
                           bool _enableVaporizedOil_,
                           bool _enableVaporizedWater_,
                           bool _enableDiffusion_,
+                          const PhaseUsageInfo<IndexTraits>& _phaseUsageInfo_,
                           Storage<std::array<Scalar, 3>>&& _referenceDensity_,
                           Storage<std::array<Scalar, 3>>&& _molarMass_,
                           Storage<std::array<Scalar, 3 * 3>>&& _diffusionCoefficients_,
@@ -211,6 +212,7 @@ public:
         , enableVaporizedOil_(_enableVaporizedOil_)
         , enableVaporizedWater_(_enableVaporizedWater_)
         , enableDiffusion_(_enableDiffusion_)
+        , phaseUsageInfo_(_phaseUsageInfo_)
         , referenceDensity_(std::move(_referenceDensity_))
         , molarMass_(std::move(_molarMass_))
         , diffusionCoefficients_(std::move(_diffusionCoefficients_))

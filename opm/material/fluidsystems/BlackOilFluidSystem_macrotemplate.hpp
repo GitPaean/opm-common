@@ -165,8 +165,6 @@ public:
     explicit FLUIDSYSTEM_CLASSNAME(const FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits, StorageT>& other)
         : surfacePressure(other.surfacePressure)
         , surfaceTemperature(other.surfaceTemperature)
-        , numActivePhases_(other.numActivePhases_)
-        , phaseIsActive_(other.phaseIsActive_)
         , reservoirTemperature_(other.reservoirTemperature_)
         , gasPvt_(other.gasPvt_)
         , oilPvt_(other.oilPvt_)
@@ -179,8 +177,6 @@ public:
         , referenceDensity_(StorageT<typename decltype(referenceDensity_)::value_type>(other.referenceDensity_))
         , molarMass_(StorageT<typename decltype(molarMass_)::value_type>(other.molarMass_))
         , diffusionCoefficients_(StorageT<typename decltype(diffusionCoefficients_)::value_type>(other.diffusionCoefficients_))
-        , activeToCanonicalPhaseIdx_(other.activeToCanonicalPhaseIdx_)
-        , canonicalToActivePhaseIdx_(other.canonicalToActivePhaseIdx_)
         , isInitialized_(other.isInitialized_)
         , useSaturatedTables_(other.useSaturatedTables_)
         , enthalpy_eq_energy_(other.enthalpy_eq_energy_)
@@ -189,8 +185,6 @@ public:
 
     FLUIDSYSTEM_CLASSNAME(Scalar _surfacePressure_,
                           Scalar _surfaceTemperature_,
-                          unsigned _numActivePhases_,
-                          std::array<bool, 3> _phaseIsActive_,
                           Scalar _reservoirTemperature_,
                           const GasPvt& _gasPvt_,
                           const OilPvt& _oilPvt_,
@@ -203,15 +197,11 @@ public:
                           Storage<std::array<Scalar, 3>>&& _referenceDensity_,
                           Storage<std::array<Scalar, 3>>&& _molarMass_,
                           Storage<std::array<Scalar, 3 * 3>>&& _diffusionCoefficients_,
-                          std::array<short, 3> _activeToCanonicalPhaseIdx_,
-                          std::array<short, 3> _canonicalToActivePhaseIdx_,
                           bool _isInitialized_,
                           bool _useSaturatedTables_,
                           bool _enthalpy_eq_energy_)
         : surfacePressure(_surfacePressure_)
         , surfaceTemperature(_surfaceTemperature_)
-        , numActivePhases_(_numActivePhases_)
-        , phaseIsActive_(_phaseIsActive_)
         , reservoirTemperature_(_reservoirTemperature_)
         , gasPvt_(_gasPvt_)
         , oilPvt_(_oilPvt_)
@@ -224,8 +214,6 @@ public:
         , referenceDensity_(std::move(_referenceDensity_))
         , molarMass_(std::move(_molarMass_))
         , diffusionCoefficients_(std::move(_diffusionCoefficients_))
-        , activeToCanonicalPhaseIdx_(_activeToCanonicalPhaseIdx_)
-        , canonicalToActivePhaseIdx_(_canonicalToActivePhaseIdx_)
         , isInitialized_(_isInitialized_)
         , useSaturatedTables_(_useSaturatedTables_)
         , enthalpy_eq_energy_(_enthalpy_eq_energy_)
@@ -1762,7 +1750,6 @@ private:
     explicit FLUIDSYSTEM_CLASSNAME(const FLUIDSYSTEM_CLASSNAME_STATIC<Scalar, IndexTraits, StorageT>& other)
         : surfacePressure(other.surfacePressure)
         , surfaceTemperature(other.surfaceTemperature)
-        , phaseUsageInfo_(other.phaseUsageInfo_)
         , reservoirTemperature_(other.reservoirTemperature_)
         , gasPvt_(other.gasPvt_)
         , oilPvt_(other.oilPvt_)
@@ -1775,6 +1762,7 @@ private:
         , referenceDensity_(StorageT<typename decltype(referenceDensity_)::value_type>(other.referenceDensity_))
         , molarMass_(StorageT<typename decltype(molarMass_)::value_type>(other.molarMass_))
         , diffusionCoefficients_(StorageT<typename decltype(diffusionCoefficients_)::value_type>(other.diffusionCoefficients_))
+        , phaseUsageInfo_(other.phaseUsageInfo_)
         , isInitialized_(other.isInitialized_)
         , useSaturatedTables_(other.useSaturatedTables_)
         , enthalpy_eq_energy_(other.enthalpy_eq_energy_)
@@ -2015,8 +2003,6 @@ copy_to_gpu(const FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits>& oldFluidSystem) {
     return FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits, GpuBuffer>(
         oldFluidSystem.surfacePressure,
         oldFluidSystem.surfaceTemperature,
-        oldFluidSystem.numActivePhases_,
-        oldFluidSystem.phaseIsActive_,
         oldFluidSystem.reservoirTemperature_,
         newGasPvt,
         newOilPvt,
@@ -2026,11 +2012,10 @@ copy_to_gpu(const FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits>& oldFluidSystem) {
         oldFluidSystem.enableVaporizedOil_,
         oldFluidSystem.enableVaporizedWater_,
         oldFluidSystem.enableDiffusion_,
+        oilFluidSystem.phaseUsageInfo_,
         std::move(newReferenceDensity),
         std::move(newMolarMass),
         std::move(newDiffusionCoefficients),
-        oldFluidSystem.activeToCanonicalPhaseIdx_,
-        oldFluidSystem.canonicalToActivePhaseIdx_,
         oldFluidSystem.isInitialized_,
         oldFluidSystem.useSaturatedTables_,
         oldFluidSystem.enthalpy_eq_energy_
@@ -2055,8 +2040,6 @@ make_view(FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits, GpuBuffer>& oldFluidSystem)
     return FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits, GpuView>(
         oldFluidSystem.surfacePressure,
         oldFluidSystem.surfaceTemperature,
-        oldFluidSystem.numActivePhases_,
-        oldFluidSystem.phaseIsActive_,
         oldFluidSystem.reservoirTemperature_,
         newGasPvt,
         newOilPvt,
@@ -2066,11 +2049,10 @@ make_view(FLUIDSYSTEM_CLASSNAME<Scalar, IndexTraits, GpuBuffer>& oldFluidSystem)
         oldFluidSystem.enableVaporizedOil_,
         oldFluidSystem.enableVaporizedWater_,
         oldFluidSystem.enableDiffusion_,
+        oilFluidSystem.phaseUsageInfo_,
         std::move(newReferenceDensity),
         std::move(newMolarMass),
         std::move(newDiffusionCoefficients),
-        oldFluidSystem.activeToCanonicalPhaseIdx_,
-        oldFluidSystem.canonicalToActivePhaseIdx_,
         oldFluidSystem.isInitialized_,
         oldFluidSystem.useSaturatedTables_,
         oldFluidSystem.enthalpy_eq_energy_

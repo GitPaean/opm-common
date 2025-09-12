@@ -129,6 +129,57 @@ void PhaseUsageInfo<IndexTraits>::initFromPhases(const Phases& phases) {
     has_zFraction = phases.active(Phase::ZFRACTION);
 
     this->updateIndexMapping_();
+
+    // we need to do something here when we need non-zero PVOffset
+    constexpr unsigned PVOffset = 0;
+
+    // if (this->phaseIsActive(waterPhaseIdx)) {
+    //     waterSwitchIdx = PVOffset;
+    //     pressureSwitchIdx = PVOffset + 1;
+    // }  else {
+    //     pressureSwitchIdx = PVOffset;
+    // }
+
+    // we can do more generic while let us use the easier way first
+    // the following code is the code from blackoilvariableandequationindices.hh
+    if (numActivePhases() == 3) {
+        waterSwitchIdx = PVOffset + 0;
+        pressureSwitchIdx = PVOffset + 1;
+        compositionSwitchIdx = PVOffset + 2;
+        if (has_solvent) {
+            solventSaturationIdx = PVOffset + 3;
+        }
+        if (has_zFraction) {
+            zFractionIdx = PVOffset + 3 + has_solvent;
+        }
+        if (has_polymer) {
+            polymerConcentrationIdx = PVOffset + 3 + has_solvent;
+        }
+        if (has_micp) {
+            microbialConcentrationIdx = PVOffset + 3 + has_solvent;
+        }
+        // TODO: we do not deal with numMICPs > 1 situation yet
+        // TODO: let us deal with other later when the prototype works
+    }
+    // blackoiltwophaseindices.hh
+    if (numActivePhases() == 2) {
+        if (this->phaseIsActive(waterPhaseIdx)) {
+            waterSwitchIdx = PVOffset;
+            pressureSwitchIdx = PVOffset + 1;
+        } else {
+            pressureSwitchIdx = PVOffset;
+        }
+        if (this->phaseIsActive(waterPhaseIdx) && this->phaseIsActive(oilPhaseIdx)) {
+            compositionSwitchIdx = PVOffset + 1;
+        }
+        // TODO: we deal with others later
+    }
+    // blackoilindices.hh
+    if (numActivePhases() == 1) {
+        pressureSwitchIdx = PVOffset + 0;
+        // TODO: we deal with others later
+    }
+
 }
 #endif
 

@@ -182,6 +182,25 @@ private:
 
     void reset_();
 
+// TODO: prototyping the dynamic indices here
+public:
+static constexpr int INVALID_INDEX = -1000;
+
+    int waterSwitchIdx {INVALID_INDEX};
+    int pressureSwitchIdx{INVALID_INDEX};
+    int compositionSwitchIdx{INVALID_INDEX};
+    int solventSaturationIdx{INVALID_INDEX};
+    int zFractionIdx{INVALID_INDEX};
+    int polymerConcentrationIdx{INVALID_INDEX};
+    int polymerMolecularWeightIdx{INVALID_INDEX};
+    int microbialConcentrationIdx{INVALID_INDEX};
+    int oxygenConcentrationIdx{INVALID_INDEX};
+    int ureaConcentrationIdx{INVALID_INDEX};
+    int biofilmConcentrationIdx{INVALID_INDEX};
+    int calciteConcentrationIdx{INVALID_INDEX};
+    int foamConcentrationIdx{INVALID_INDEX};
+    int saltConcentrationIdx{INVALID_INDEX};
+    int temperatureIdx{INVALID_INDEX};
 };
 
 }

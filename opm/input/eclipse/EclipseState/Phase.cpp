@@ -58,4 +58,33 @@ std::ostream& operator<<( std::ostream& stream, const Phase& p ) {
     return stream;
 }
 
+std::string
+phase2String(const Phase& phase)
+{
+    switch (phase) {
+    case Phase::OIL:
+        return "OIL";
+    case Phase::GAS:
+        return "GAS";
+    case Phase::WATER:
+        return "WATER";
+    case Phase::SOLVENT:
+        return "SOLVENT";
+    case Phase::POLYMER:
+        return "POLYMER";
+    case Phase::ENERGY:
+        return "ENERGY";
+    case Phase::POLYMW:
+        return "POLYMW";
+    case Phase::FOAM:
+        return "FOAM";
+    case Phase::BRINE:
+        return "BRINE";
+    case Phase::ZFRACTION:
+        return "ZFRACTION";
+    }
+    throw std::invalid_argument("Unknown phase enum value");
 }
+
+}
+

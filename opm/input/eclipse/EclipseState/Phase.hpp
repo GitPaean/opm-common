@@ -43,6 +43,7 @@ constexpr int NUM_PHASES_IN_ENUM = static_cast<int>(Phase::ZFRACTION) + 1;  // U
 
 Phase get_phase( const std::string& );
 std::ostream& operator<<( std::ostream&, const Phase& );
+std::string phase2String(const Phase& phase);
 
 }
 

@@ -15,6 +15,8 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define _USE_MATH_DEFINES
+
 #include <opm/common/utility/numeric/calculateCellVol.hpp>
 
 #include <opm/common/ErrorMacros.hpp>

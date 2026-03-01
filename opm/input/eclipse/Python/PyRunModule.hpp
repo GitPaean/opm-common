@@ -38,7 +38,11 @@ namespace py = pybind11;
 
 namespace Opm {
 
+#if defined(__GNUC__) || defined(__clang__)
 class __attribute__((visibility("default"))) PyRunModule {
+#else
+class PyRunModule {
+#endif
 public:
     PyRunModule(std::shared_ptr<const Python> python, const std::string& fname);
 

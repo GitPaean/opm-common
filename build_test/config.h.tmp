@@ -1,8 +1,0 @@
-/* #undef HAVE_OPENMP */
-/* #undef HAVE_TYPE_TRAITS */
-/* #undef HAVE_FINAL */
-/* #undef HAVE_ECL_INPUT */
-/* #undef HAVE_CXA_DEMANGLE */
-#define HAVE_FNMATCH_H 1
-/* #undef HAVE_DUNE_COMMON */
-#define HAVE_DYNAMIC_BOOST_TEST 1

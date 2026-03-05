@@ -1,0 +1,12 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=url
+command=/usr/local/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/home/runner/work/opm-common/opm-common/build_test/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/download-fmt-populate.cmake;COMMAND;/usr/local/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/home/runner/work/opm-common/opm-common/build_test/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/verify-fmt-populate.cmake;COMMAND;/usr/local/bin/cmake;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;/home/runner/work/opm-common/opm-common/build_test/_deps/fmt-subbuild/fmt-populate-prefix/src/fmt-populate-stamp/extract-fmt-populate.cmake
+source_dir=/home/runner/work/opm-common/opm-common/build_test/_deps/fmt-src
+work_dir=/home/runner/work/opm-common/opm-common/build_test/_deps
+url(s)=https://github.com/fmtlib/fmt/archive/refs/tags/10.1.1.tar.gz
+hash=SHA512=288c349baac5f96f527d5b1bed0fa5f031aa509b4526560c684281388e91909a280c3262a2474d963b5d1bf7064b1c9930c6677fe54a0d8f86982d063296a54c
+      no_extract=
+

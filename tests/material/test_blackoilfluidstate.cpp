@@ -39,6 +39,10 @@
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 #include <opm/material/checkFluidSystem.hpp>
 
+#include <string_view>
+#include <type_traits>
+#include <vector>
+
 using Types = boost::mpl::list<float,double>;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(ApiConformance, Scalar, Types)
@@ -52,4 +56,40 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ApiConformance, Scalar, Types)
     checkFluidState<Scalar>(fss);
     FluidState fs{};
     checkFluidState<Evaluation>(fs);
+}
+
+// Verify that createFluidState is a static method with the expected return type.
+// This is a compile-time check; no fluid system initialization is required.
+BOOST_AUTO_TEST_CASE_TEMPLATE(CreateFluidStateSignature, Scalar, Types)
+{
+    using FluidSystem = Opm::BlackOilFluidSystem<Scalar>;
+    using Evaluation = Opm::DenseAd::Evaluation<Scalar, 2>;
+
+    // The return type of createFluidState<Evaluation> should be
+    // BlackOilFluidState<Evaluation, FluidSystem, ...> with the same
+    // boolean template args as the calling specialization.
+    using FluidStateType = Opm::BlackOilFluidState<Scalar, FluidSystem,
+                                                    /*storeTemperature=*/false,
+                                                    /*storeEnthalpy=*/false,
+                                                    /*enableDissolution=*/true>;
+
+    using ExpectedReturn = Opm::BlackOilFluidState<Evaluation, FluidSystem,
+                                                    /*storeTemperature=*/false,
+                                                    /*storeEnthalpy=*/false,
+                                                    /*enableDissolution=*/true>;
+
+    // Verify that the return type of createFluidState<Evaluation> matches.
+    // We use decltype on a pointer-to-member-function to avoid calling the function.
+    using FnPtr = ExpectedReturn (*)(const std::vector<Evaluation>&,
+                                     const Evaluation&,
+                                     const Evaluation&,
+                                     Scalar,
+                                     int,
+                                     std::string_view);
+
+    static_assert(
+        std::is_same_v<FnPtr, decltype(&FluidStateType::template createFluidState<Evaluation>)>,
+        "createFluidState return type or signature does not match expectations");
+
+    BOOST_TEST(true); // Ensure the test is actually executed
 }

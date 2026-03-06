@@ -53,3 +53,66 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ApiConformance, Scalar, Types)
     FluidState fs{};
     checkFluidState<Evaluation>(fs);
 }
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(SolventDisabled, Scalar, Types)
+{
+    using FluidSystem = Opm::BlackOilFluidSystem<Scalar>;
+    // enableSolvent = false (default)
+    using FluidState = Opm::BlackOilFluidState<Scalar, FluidSystem>;
+
+    FluidState fs{};
+    // When solvent is disabled, getters should return 0
+    BOOST_CHECK_EQUAL(fs.solventSaturation(), Scalar(0.0));
+    BOOST_CHECK_EQUAL(fs.rsSolw(), Scalar(0.0));
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(SolventEnabled, Scalar, Types)
+{
+    using FluidSystem = Opm::BlackOilFluidSystem<Scalar>;
+    // Template params: ScalarT, FluidSystemT, storeTemperature, storeEnthalpy,
+    //   enableDissolution, enableVapwat, enableBrine, enableSaltPrecipitation,
+    //   enableDissolutionInWater, enableSolvent
+    using FluidState = Opm::BlackOilFluidState<Scalar, FluidSystem,
+                                               false, false, true, false,
+                                               false, false, false, true>;
+
+    FluidState fs{};
+
+    // Test setter and getter for solvent saturation
+    fs.setSolventSaturation(Scalar(0.15));
+    BOOST_CHECK_EQUAL(fs.solventSaturation(), Scalar(0.15));
+
+    // Test setter and getter for rsSolw
+    fs.setRsSolw(Scalar(0.05));
+    BOOST_CHECK_EQUAL(fs.rsSolw(), Scalar(0.05));
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(SolventAssign, Scalar, Types)
+{
+    using FluidSystem = Opm::BlackOilFluidSystem<Scalar>;
+    using FluidState = Opm::BlackOilFluidState<Scalar, FluidSystem,
+                                               false, false, true, false,
+                                               false, false, false, true>;
+
+    FluidState src{};
+    src.setPvtRegionIndex(0);
+    src.setSolventSaturation(Scalar(0.25));
+    src.setRsSolw(Scalar(0.10));
+
+    // Set required phase quantities
+    for (unsigned phaseIdx = 0; phaseIdx < FluidSystem::numPhases; ++phaseIdx) {
+        src.setSaturation(phaseIdx, Scalar(1.0 / FluidSystem::numPhases));
+        src.setPressure(phaseIdx, Scalar(1e5));
+        src.setDensity(phaseIdx, Scalar(1000.0));
+        src.setInvB(phaseIdx, Scalar(1.0));
+    }
+    src.setRs(Scalar(0.0));
+    src.setRv(Scalar(0.0));
+
+    // Assign from source to destination
+    FluidState dst{};
+    dst.assign(src);
+
+    BOOST_CHECK_EQUAL(dst.solventSaturation(), Scalar(0.25));
+    BOOST_CHECK_EQUAL(dst.rsSolw(), Scalar(0.10));
+}

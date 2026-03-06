@@ -53,6 +53,8 @@ OPM_GENERATE_HAS_MEMBER(Rvw, ) // Creates 'HasMember_Rvw<T>'.
 OPM_GENERATE_HAS_MEMBER(Rsw, ) // Creates 'HasMember_Rsw<T>'.
 OPM_GENERATE_HAS_MEMBER(saltConcentration, )
 OPM_GENERATE_HAS_MEMBER(saltSaturation, )
+OPM_GENERATE_HAS_MEMBER(solventSaturation, )
+OPM_GENERATE_HAS_MEMBER(rsSolw, )
 
 template <class FluidSystem, class FluidState, class LhsEval>
 LhsEval
@@ -154,6 +156,40 @@ getSaltSaturation_(
     -> decltype(decay<LhsEval>(fluidState.saltSaturation()))
 {
     return decay<LhsEval>(fluidState.saltSaturation());
+}
+
+template <class FluidState, class LhsEval>
+LhsEval
+getSolventSaturation_(typename std::enable_if<!HasMember_solventSaturation<FluidState>::value, const FluidState&>::type,
+                      unsigned)
+{
+    return 0.0;
+}
+
+template <class FluidState, class LhsEval>
+auto
+getSolventSaturation_(
+    typename std::enable_if<HasMember_solventSaturation<FluidState>::value, const FluidState&>::type fluidState,
+    unsigned) -> decltype(decay<LhsEval>(fluidState.solventSaturation()))
+{
+    return decay<LhsEval>(fluidState.solventSaturation());
+}
+
+template <class FluidState, class LhsEval>
+LhsEval
+getRsSolw_(typename std::enable_if<!HasMember_rsSolw<FluidState>::value, const FluidState&>::type,
+           unsigned)
+{
+    return 0.0;
+}
+
+template <class FluidState, class LhsEval>
+auto
+getRsSolw_(
+    typename std::enable_if<HasMember_rsSolw<FluidState>::value, const FluidState&>::type fluidState,
+    unsigned) -> decltype(decay<LhsEval>(fluidState.rsSolw()))
+{
+    return decay<LhsEval>(fluidState.rsSolw());
 }
 
 } // namespace Opm::BlackOil

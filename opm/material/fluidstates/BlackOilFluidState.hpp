@@ -122,6 +122,7 @@ template <class ScalarT,
           bool enableBrine = false,
           bool enableSaltPrecipitation = false,
           bool enableDissolutionInWater = false,
+          bool enableSolvent = false,
           unsigned numStoragePhases = FluidSystemT::numPhases>
 class BlackOilFluidState
 {
@@ -208,6 +209,11 @@ public:
             Valgrind::CheckDefined(*saltSaturation_);
         }
 
+        if constexpr (enableSolvent) {
+            Valgrind::CheckDefined(*solventSaturation_);
+            Valgrind::CheckDefined(*rsSolw_);
+        }
+
         if constexpr (storeTemperature)
             Valgrind::CheckDefined(*temperature_);
 #endif // NDEBUG
@@ -241,6 +247,10 @@ public:
         }
         if constexpr (enableSaltPrecipitation){
             setSaltSaturation(BlackOil::getSaltSaturation_<FluidSystem, FluidState, Scalar>(fs, pvtRegionIdx));
+        }
+        if constexpr (enableSolvent){
+            setSolventSaturation(BlackOil::getSolventSaturation_<FluidState, Scalar>(fs, pvtRegionIdx));
+            setRsSolw(BlackOil::getRsSolw_<FluidState, Scalar>(fs, pvtRegionIdx));
         }
         for (unsigned storagePhaseIdx = 0; storagePhaseIdx < numStoragePhases; ++storagePhaseIdx) {
             unsigned phaseIdx = storageToCanonicalPhaseIndex_(storagePhaseIdx, fluidSystem());
@@ -367,6 +377,18 @@ public:
     { *saltSaturation_ = newSaltSaturation; }
 
     /*!
+     * \brief Set the solvent saturation.
+     */
+    OPM_HOST_DEVICE void setSolventSaturation(const Scalar& newSolventSaturation)
+    { *solventSaturation_ = newSolventSaturation; }
+
+    /*!
+     * \brief Set the solvent dissolution factor in water [m^3/m^3].
+     */
+    OPM_HOST_DEVICE void setRsSolw(const Scalar& newRsSolw)
+    { *rsSolw_ = newRsSolw; }
+
+    /*!
      * \brief Return the pressure of a fluid phase [Pa]
      */
     OPM_HOST_DEVICE const Scalar& pressure(unsigned phaseIdx) const
@@ -490,6 +512,30 @@ public:
     {
         if constexpr (enableSaltPrecipitation) {
             return *saltSaturation_;
+        } else {
+            return Scalar(0.0);
+        }
+    }
+
+    /*!
+     * \brief Return the solvent saturation
+     */
+    OPM_HOST_DEVICE Scalar solventSaturation() const
+    {
+        if constexpr (enableSolvent) {
+            return *solventSaturation_;
+        } else {
+            return Scalar(0.0);
+        }
+    }
+
+    /*!
+     * \brief Return the solvent dissolution factor in water [m^3/m^3]
+     */
+    OPM_HOST_DEVICE Scalar rsSolw() const
+    {
+        if constexpr (enableSolvent) {
+            return *rsSolw_;
         } else {
             return Scalar(0.0);
         }
@@ -736,6 +782,8 @@ private:
     ConditionalStorage<enableDissolutionInWater,Scalar> Rsw_{};
     ConditionalStorage<enableBrine, Scalar> saltConcentration_{};
     ConditionalStorage<enableSaltPrecipitation, Scalar> saltSaturation_{};
+    ConditionalStorage<enableSolvent, Scalar> solventSaturation_{};
+    ConditionalStorage<enableSolvent, Scalar> rsSolw_{};
 
     unsigned short pvtRegionIdx_{};
 

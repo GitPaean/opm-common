@@ -50,6 +50,7 @@
 #include <opm/json/JsonObject.hpp>
 
 #include <fmt/format.h>
+#include <iterator>
 
 // It is a three component system
 using Scalar = double;
@@ -174,49 +175,50 @@ for (const auto& sample : test_methods) {
                             "EOS type " << eos_string << ": L does not match");
 
         if (output_results_json) {
-            json_output += fmt::format("    \"{}\": {{\n", eos_string);
-
-            auto fmt_eval = [](const Evaluation& eval) {
-                std::string s = fmt::format("[{}", eval.value());
+            auto append_eval = [&](const Evaluation& eval) {
+                fmt::format_to(std::back_inserter(json_output), "[{}", eval.value());
                 for (int i = 0; i < numPrimaryVariables; ++i) {
-                    s += fmt::format(", {}", eval.derivative(i));
+                    fmt::format_to(std::back_inserter(json_output), ", {}", eval.derivative(i));
                 }
-                s += "]";
-                return s;
+                fmt::format_to(std::back_inserter(json_output), "]");
             };
 
+            fmt::format_to(std::back_inserter(json_output), "    \"{}\": {{\n", eos_string);
+
             // x
-            json_output += "        \"x\" : [\n";
+            fmt::format_to(std::back_inserter(json_output), "        \"x\" : [\n");
             for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
-                json_output += fmt::format("            {}{}\n",
-                    fmt_eval(x[comp_idx]),
-                    comp_idx < numComponents - 1 ? "," : "");
+                fmt::format_to(std::back_inserter(json_output), "            ");
+                append_eval(x[comp_idx]);
+                fmt::format_to(std::back_inserter(json_output), "{}\n", comp_idx < numComponents - 1 ? "," : "");
             }
-            json_output += "        ],\n";
+            fmt::format_to(std::back_inserter(json_output), "        ],\n");
 
             // y
-            json_output += "        \"y\" : [\n";
+            fmt::format_to(std::back_inserter(json_output), "        \"y\" : [\n");
             for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
-                json_output += fmt::format("            {}{}\n",
-                    fmt_eval(y[comp_idx]),
-                    comp_idx < numComponents - 1 ? "," : "");
+                fmt::format_to(std::back_inserter(json_output), "            ");
+                append_eval(y[comp_idx]);
+                fmt::format_to(std::back_inserter(json_output), "{}\n", comp_idx < numComponents - 1 ? "," : "");
             }
-            json_output += "        ],\n";
+            fmt::format_to(std::back_inserter(json_output), "        ],\n");
 
             // L
-            json_output += fmt::format("        \"L\" : {}\n", fmt_eval(L));
-            json_output += "    },\n\n";
+            fmt::format_to(std::back_inserter(json_output), "        \"L\" : ");
+            append_eval(L);
+            fmt::format_to(std::back_inserter(json_output), "\n    }},\n\n");
         }
     }
     if (output_results_json) {
-        json_output += fmt::format("    \"T\" : {:.1f},\n", T_init.value());
-        json_output += "    \"P\" : 10e5,\n";
-            json_output += "    \"z\" : [";
-            for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
-                json_output += fmt::format("{}{}", Opm::getValue(comp[comp_idx]), comp_idx < numComponents - 1 ? "," : "");
-            }
-            json_output += "]\n";
-        json_output += "}\n";
+        fmt::format_to(std::back_inserter(json_output), "    \"T\" : {:.1f},\n", T_init.value());
+        fmt::format_to(std::back_inserter(json_output), "    \"P\" : 10e5,\n");
+        fmt::format_to(std::back_inserter(json_output), "    \"z\" : [");
+        for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
+            fmt::format_to(std::back_inserter(json_output), "{}{}",
+                           Opm::getValue(comp[comp_idx]),
+                           comp_idx < numComponents - 1 ? ", " : "");
+        }
+        fmt::format_to(std::back_inserter(json_output), "]\n}}\n");
         std::cout << json_output;
     }
 #if BOOST_VERSION / 100000 == 1 && BOOST_VERSION / 100 % 1000 < 67

@@ -49,6 +49,7 @@
 
 #include <opm/json/JsonObject.hpp>
 
+#include <fmt/format.h>
 
 // It is a three component system
 using Scalar = double;
@@ -87,11 +88,13 @@ for (const auto& sample : test_methods) {
     comp[1] = Evaluation::createVariable(0.3, 3);
     comp[2] = 1. - comp[0] - comp[1];
 
-
-    constexpr bool output_results_json = false;
-    // Build a JsonObject with simulation results, which can be used for investigation
+    constexpr bool output_results_json = true;
+    // Build a JSON string with simulation results, which can be used for investigation
     // or generating reference values for future if needed.
-    Json::JsonObject results;
+    [[maybe_unused]] std::string json_output;
+    if constexpr (output_results_json) {
+        json_output = "{\n";
+    }
     for (const auto& eos_type : test_eos_types) {
         // FluidState will be the input for the flash calculation
         FluidState fluid_state;
@@ -171,42 +174,50 @@ for (const auto& sample : test_methods) {
                             "EOS type " << eos_string << ": L does not match");
 
         if (output_results_json) {
-            Json::JsonObject eos_obj = results.add_object(eos_string);
+            json_output += fmt::format("    \"{}\": {{\n", eos_string);
 
-            Json::JsonObject x_arr = eos_obj.add_array("x");
-            for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
-                Json::JsonObject row = x_arr.add_array();
-                row.add(x[comp_idx].value());
+            auto fmt_eval = [](const Evaluation& eval) {
+                std::string s = fmt::format("[{}", eval.value());
                 for (int i = 0; i < numPrimaryVariables; ++i) {
-                    row.add(x[comp_idx].derivative(i));
+                    s += fmt::format(", {}", eval.derivative(i));
                 }
-            }
+                s += "]";
+                return s;
+            };
 
-            Json::JsonObject y_arr = eos_obj.add_array("y");
+            // x
+            json_output += "        \"x\" : [\n";
             for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
-                Json::JsonObject row = y_arr.add_array();
-                row.add(y[comp_idx].value());
-                for (int i = 0; i < numPrimaryVariables; ++i) {
-                    row.add(y[comp_idx].derivative(i));
-                }
+                json_output += fmt::format("            {}{}\n",
+                    fmt_eval(x[comp_idx]),
+                    comp_idx < numComponents - 1 ? "," : "");
             }
+            json_output += "        ],\n";
 
-            Json::JsonObject l_arr = eos_obj.add_array("L");
-            l_arr.add(L.value());
-            for (int i = 0; i < numPrimaryVariables; ++i) {
-                l_arr.add(L.derivative(i));
+            // y
+            json_output += "        \"y\" : [\n";
+            for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
+                json_output += fmt::format("            {}{}\n",
+                    fmt_eval(y[comp_idx]),
+                    comp_idx < numComponents - 1 ? "," : "");
             }
+            json_output += "        ],\n";
 
+            // L
+            json_output += fmt::format("        \"L\" : {}\n", fmt_eval(L));
+            json_output += "    },\n\n";
         }
     }
     if (output_results_json) {
-        results.add_item("T", T_init.value());
-        results.add_item("P", p_init.value());
-        Json::JsonObject z_arr = results.add_array("z");
-        for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
-            z_arr.add(comp[comp_idx].value());
-        }
-        std::cout << results.dump() << std::endl;
+        json_output += fmt::format("    \"T\" : {:.1f},\n", T_init.value());
+        json_output += "    \"P\" : 10e5,\n";
+            json_output += "    \"z\" : [";
+            for (int comp_idx = 0; comp_idx < numComponents; ++comp_idx) {
+                json_output += fmt::format("{}{}", Opm::getValue(comp[comp_idx]), comp_idx < numComponents - 1 ? "," : "");
+            }
+            json_output += "]\n";
+        json_output += "}\n";
+        std::cout << json_output;
     }
 #if BOOST_VERSION / 100000 == 1 && BOOST_VERSION / 100 % 1000 < 67
 }

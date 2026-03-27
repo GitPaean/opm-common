@@ -78,3 +78,7 @@ install
 *.pyc
 *.eggs
 *.egg-info
+
+# Build directories
+build_test/
+build/

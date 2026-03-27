@@ -28,7 +28,9 @@
 #ifndef OPM_BLACK_OIL_FLUID_STATE_HH
 #define OPM_BLACK_OIL_FLUID_STATE_HH
 
+#include <string_view>
 #include <type_traits>
+#include <vector>
 
 #include <opm/common/utility/gpuDecorators.hpp>
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
@@ -711,6 +713,53 @@ public:
     }
 
     /*!
+     * \brief Factory function: create a BlackOilFluidState from surface-volume
+     *        fluid compositions.
+     *
+     * Given per-component surface-volume fractions (\p fluidComposition), a
+     * pressure, temperature, salt concentration, and a PVT region index, this
+     * function computes the dissolution/vaporization factors (Rs, Rv, Rsw, Rvw),
+     * the inverse formation volume factors (invB), phase saturations and densities
+     * (and, when the energy equation is active, enthalpies), and returns the
+     * fully-populated BlackOilFluidState.
+     *
+     * All boolean feature flags (storeTemperature, storeEnthalpy,
+     * enableDissolution, enableVapwat, enableBrine, enableSaltPrecipitation,
+     * enableDissolutionInWater) are taken directly from the class template
+     * parameters, so callers do not need to pass them explicitly.
+     *
+     * \note This function requires a stateless (static) fluid system
+     *       (i.e. \c fluidSystemIsStatic must be \c true).
+     *
+     * \tparam ValueType Scalar or Evaluation (AD) type for the computation.
+     *                   May differ from the class's \c Scalar, e.g. when the
+     *                   caller works with automatic differentiation.
+     *
+     * \param[in] fluidComposition Surface-volume fractions, indexed by active
+     *                             component index.
+     * \param[in] pressure         Phase pressure (identical for all phases;
+     *                             capillary pressure is neglected).
+     * \param[in] temperature      Fluid temperature (only used when
+     *                             \c storeTemperature is \c true).
+     * \param[in] saltConcentration Brine salt concentration (only used when
+     *                              \c enableBrine is \c true).
+     * \param[in] pvtRegionIdx     PVT region index for fluid-property lookups.
+     * \param[in] name             Descriptive identifier used in error messages
+     *                             (e.g. well name, cell identifier).
+     *
+     * \returns A \c BlackOilFluidState<ValueType, ...> with pressures,
+     *          dissolution factors, invB, saturations, and densities
+     *          (and enthalpies) populated.
+     */
+    template <typename ValueType>
+    static auto createFluidState(const std::vector<ValueType>& fluidComposition,
+                                 const ValueType& pressure,
+                                 const ValueType& temperature,
+                                 Scalar saltConcentration,
+                                 int pvtRegionIdx,
+                                 std::string_view name = "");
+
+    /*!
      * \brief Return the fluid system used by this fluid state.
      *
      * If the fluid system is static (i.e., if the fluid system
@@ -766,5 +815,7 @@ private:
 };
 
 } // namespace Opm
+
+#include <opm/material/fluidstates/BlackOilFluidState_impl.hpp>
 
 #endif

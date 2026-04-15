@@ -50,6 +50,7 @@ namespace Opm {
         ///
         /// \param[in] deck Run's model description.
         /// \param[in] phases Run's active phase description.
+        /// \param[in] compositional Whether or not run is compositional.
         InitConfig(const Deck& deck, const Phases& phases, bool compositional);
 
         /// Create a serialisation test object.

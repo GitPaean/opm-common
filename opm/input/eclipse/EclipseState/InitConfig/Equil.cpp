@@ -78,7 +78,7 @@ namespace Opm {
         if (compositional) {
             comp_init_type = record.getItem<ParserKeywords::EQUIL::COMP_INIT_TYPE>().get<int>(0);
             if (comp_init_type == 2 || comp_init_type == 3) {
-                set_to_saturaion_pressure = record.getItem<ParserKeywords::EQUIL::COMP_NOT_SET_SAT_PRESSURE>().get<int>(0) != 1;
+                set_to_saturation_pressure = record.getItem<ParserKeywords::EQUIL::COMP_NOT_SET_SAT_PRESSURE>().get<int>(0) != 1;
             }
         }
     }
@@ -128,8 +128,8 @@ namespace Opm {
         return this->comp_init_type;
     }
 
-    bool EquilRecord::setToSaturaionPressure() const {
-       return this->set_to_saturaion_pressure;
+    bool EquilRecord::setToSaturationPressure() const {
+       return this->set_to_saturation_pressure;
     }
 
     bool EquilRecord::humidGasInitConstantRvw() const {
@@ -142,14 +142,14 @@ namespace Opm {
                water_oil_contact_depth == data.water_oil_contact_depth &&
                water_oil_contact_capillary_pressure ==
                data.water_oil_contact_capillary_pressure &&
-               data.gas_oil_contact_depth == data.gas_oil_contact_depth &&
+               gas_oil_contact_depth == data.gas_oil_contact_depth &&
                gas_oil_contact_capillary_pressure ==
                data.gas_oil_contact_capillary_pressure &&
                live_oil_init_proc == data.live_oil_init_proc &&
                wet_gas_init_proc == data.wet_gas_init_proc &&
                init_target_accuracy == data.init_target_accuracy &&
                comp_init_type == data.comp_init_type &&
-               set_to_saturaion_pressure == data.set_to_saturaion_pressure &&
+               set_to_saturation_pressure == data.set_to_saturation_pressure &&
                humid_gas_init_proc == data.humid_gas_init_proc;
     }
 

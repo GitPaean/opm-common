@@ -34,7 +34,7 @@ namespace Opm {
             bool wetGasInitConstantRv() const;
             int initializationTargetAccuracy() const;
             int compositionalInitType() const;
-            bool setToSaturaionPressure() const;
+            bool setToSaturationPressure() const;
             bool humidGasInitConstantRvw() const;
 
             bool operator==(const EquilRecord& data) const;
@@ -52,7 +52,7 @@ namespace Opm {
                 serializer(wet_gas_init_proc);
                 serializer(init_target_accuracy);
                 serializer(comp_init_type);
-                serializer(set_to_saturaion_pressure);
+                serializer(set_to_saturation_pressure);
                 serializer(humid_gas_init_proc);
             }
 
@@ -72,7 +72,7 @@ namespace Opm {
             /// Item 11 – Whether to set the field pressure to the saturation
             /// pressure at the contact depth.  Only relevant when
             /// comp_init_type is 2 or 3 (compositional only).
-            bool set_to_saturaion_pressure = true;
+            bool set_to_saturation_pressure = true;
             bool humid_gas_init_proc = false;
     };
 

@@ -424,7 +424,7 @@ BOOST_AUTO_TEST_CASE(CompositionalEquilOperations)
     BOOST_CHECK_EQUAL(3, record.compositionalInitType());
 
     // Item 11: COMP_NOT_SET_SAT_PRESSURE = 0 => saturation pressure IS set
-    BOOST_CHECK(record.setToSaturaionPressure());
+    BOOST_CHECK(record.setToSaturationPressure());
 }
 
 BOOST_AUTO_TEST_CASE(StrEquilOperations)

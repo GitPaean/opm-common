@@ -67,7 +67,7 @@
       "item": 9,
       "name": "OIP_INIT",
       "value_type": "INT",
-      "comment": "Only values less than or equal to zero supported. Default to be -5 for black oil case, 0 for compositional case"
+      "comment": "Only values less than or equal to zero supported. Defaults: -5 (black-oil), 0 (compositional)"
     },
     {
       "item": 10,

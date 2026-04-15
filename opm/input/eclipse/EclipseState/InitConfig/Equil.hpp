@@ -10,6 +10,12 @@ namespace Opm {
     class KeywordLocation;
     class Phases;
 
+    /// Single equilibration region record from the EQUIL keyword.
+    ///
+    /// Holds datum depth, contact depths, capillary pressures, and
+    /// initialisation options for one EQUIL region.  Items 10 and 11 are
+    /// specific to compositional (E300-style) simulations and are only
+    /// populated when the model is run in compositional mode.
     class EquilRecord {
         public:
             EquilRecord() = default;
@@ -23,18 +29,54 @@ namespace Opm {
             EquilRecord(const DeckRecord& record, const Phases& phases, int region, const KeywordLocation& location, bool compositional);
 
             static EquilRecord serializationTestObject();
+
+            /// Item 1 – Datum depth for the equilibration region.
             double datumDepth() const;
+
+            /// Item 2 – Pressure at the datum depth.
             double datumDepthPressure() const;
+
+            /// Item 3 – Depth of the water-oil contact (OWC).
             double waterOilContactDepth() const;
+
+            /// Item 4 – Capillary pressure at the water-oil contact.
             double waterOilContactCapillaryPressure() const;
+
+            /// Item 5 – Depth of the gas-oil contact (GOC).
             double gasOilContactDepth() const;
+
+            /// Item 6 – Capillary pressure at the gas-oil contact.
             double gasOilContactCapillaryPressure() const;
 
+            /// Item 7 – Whether to use a constant Rs (live-oil) initialisation
+            /// procedure.  True when the deck value is <= 0.
             bool liveOilInitConstantRs() const;
+
+            /// Item 8 – Whether to use a constant Rv (wet-gas) initialisation
+            /// procedure.  True when the deck value is <= 0.
             bool wetGasInitConstantRv() const;
+
+            /// Item 9 – Accuracy/method indicator for the initial fluid-in-place
+            /// calculation (OIP_INIT).  Defaults to -5 for black-oil runs
+            /// and 0 for compositional runs.
             int initializationTargetAccuracy() const;
+
+            /// Item 10 – Compositional initialisation type (E300-specific).
+            /// Only meaningful in compositional simulations.  Typical values:
+            ///   1 – default compositional init,
+            ///   2 – alternative init with optional saturation-pressure override,
+            ///   3 – alternative init with optional saturation-pressure override.
             int compositionalInitType() const;
+
+            /// Item 11 – Whether the field pressure is set to the saturation
+            /// pressure at the contact depth (E300-specific).  Only relevant
+            /// when compositionalInitType() returns 2 or 3.  True (the
+            /// default) means saturation pressure is applied; false means it
+            /// is not.
             bool setToSaturaionPressure() const;
+
+            /// Item 12 – Whether to use a constant Rvw (humid-gas)
+            /// initialisation procedure.  True when the deck value is <= 0.
             bool humidGasInitConstantRvw() const;
 
             bool operator==(const EquilRecord& data) const;
@@ -57,19 +99,44 @@ namespace Opm {
             }
 
         private:
+            /// Item 1 – Datum depth for the equilibration region.
             double datum_depth = 0.0;
+
+            /// Item 2 – Pressure at the datum depth.
             double datum_depth_ps = 0.0;
+
+            /// Item 3 – Depth of the water-oil contact.
             double water_oil_contact_depth = 0.0;
+
+            /// Item 4 – Capillary pressure at the water-oil contact.
             double water_oil_contact_capillary_pressure = 0.0;
+
+            /// Item 5 – Depth of the gas-oil contact.
             double gas_oil_contact_depth = 0.0;
+
+            /// Item 6 – Capillary pressure at the gas-oil contact.
             double gas_oil_contact_capillary_pressure = 0.0;
 
+            /// Item 7 – Live-oil (constant Rs) initialisation flag.
             bool live_oil_init_proc = false;
+
+            /// Item 8 – Wet-gas (constant Rv) initialisation flag.
             bool wet_gas_init_proc = false;
+
+            /// Item 9 – Initialisation target accuracy / method (OIP_INIT).
+            /// Defaults to -5 for black-oil, 0 for compositional.
             int init_target_accuracy = 0;
-            int comp_init_type = 0; // only for compositional modeling
-            // whether to set the field pressure to saturation pressure at the contact if comp_init_type is 2 or 3
-            bool set_to_saturaion_pressure = true; // only for compositional modeling
+
+            /// Item 10 – Compositional initialisation type (E300-specific).
+            /// Only populated in compositional simulations.
+            int comp_init_type = 0;
+
+            /// Item 11 – Whether to set the field pressure to the saturation
+            /// pressure at the contact depth.  Only relevant when
+            /// comp_init_type is 2 or 3 (E300-specific, compositional only).
+            bool set_to_saturaion_pressure = true;
+
+            /// Item 12 – Humid-gas (constant Rvw) initialisation flag.
             bool humid_gas_init_proc = false;
     };
 

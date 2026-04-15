@@ -228,6 +228,26 @@ SKIPREST
 )" };
     }
 
+    std::string deckWithCompositionalEquil()
+    {
+        return { R"(RUNSPEC
+DIMENS
+ 10 10 10 /
+EQLDIMS
+1  100  20  1  1  /
+OIL
+WATER
+GAS
+SOLUTION
+EQUIL
+  2050     150   2300     0     2050     0       1* 1*    0    3   0 /
+GRID
+START             -- 0
+19 JUN 2007 /
+SCHEDULE
+)" };
+    }
+
     std::string deckWithStrEquil()
     {
         return { R"(RUNSPEC
@@ -280,7 +300,7 @@ BOOST_AUTO_TEST_CASE(InitConfigTest)
 {
     {
         const auto deck = createDeck(deckStr());
-        const InitConfig cfg(deck, Runspec(deck).phases());
+        const InitConfig cfg(deck, Runspec(deck).phases(), false);
         BOOST_CHECK_EQUAL(cfg.restartRequested(), true);
         BOOST_CHECK_EQUAL(cfg.getRestartStep(), 5);
         BOOST_CHECK_EQUAL(cfg.getRestartRootName(), "BASE");
@@ -288,7 +308,7 @@ BOOST_AUTO_TEST_CASE(InitConfigTest)
 
     {
         const Deck deck2 = createDeck(deckStr2());
-        InitConfig cfg2(deck2, Runspec(deck2).phases());
+        InitConfig cfg2(deck2, Runspec(deck2).phases(), false);
         BOOST_CHECK_EQUAL(cfg2.restartRequested(), false);
         BOOST_CHECK_EQUAL(cfg2.getRestartStep(), 0);
         BOOST_CHECK_EQUAL(cfg2.getRestartRootName(), "");
@@ -301,24 +321,24 @@ BOOST_AUTO_TEST_CASE(InitConfigTest)
 
     {
         const Deck deck3 = createDeck(deckStr3());
-        BOOST_CHECK_THROW(InitConfig(deck3, Runspec(deck3).phases()), OpmInputError);
+        BOOST_CHECK_THROW(InitConfig(deck3, Runspec(deck3).phases(), false), OpmInputError);
     }
 
     {
         const Deck deck3_seq0 = createDeck(deckStr3_seq0());
-        BOOST_CHECK_THROW(InitConfig(deck3_seq0, Runspec(deck3_seq0).phases()), OpmInputError);
+        BOOST_CHECK_THROW(InitConfig(deck3_seq0, Runspec(deck3_seq0).phases(), false), OpmInputError);
     }
 
     {
         const Deck deck4 = createDeck(deckStr4());
-        BOOST_CHECK_NO_THROW(InitConfig(deck4, Runspec(deck4).phases()));
+        BOOST_CHECK_NO_THROW(InitConfig(deck4, Runspec(deck4).phases(), false));
     }
 }
 
 BOOST_AUTO_TEST_CASE(InitConfigWithoutEquil)
 {
     const auto deck = createDeck(deckStr());
-    const InitConfig config(deck, Runspec(deck).phases());
+    const InitConfig config(deck, Runspec(deck).phases(), false);
 
     BOOST_CHECK(! config.hasEquil());
     BOOST_CHECK_THROW(config.getEquil(), std::runtime_error);
@@ -327,7 +347,7 @@ BOOST_AUTO_TEST_CASE(InitConfigWithoutEquil)
 BOOST_AUTO_TEST_CASE(InitConfigWithEquil)
 {
     const auto deck = createDeck(deckWithEquil());
-    const InitConfig config(deck, Runspec(deck).phases());
+    const InitConfig config(deck, Runspec(deck).phases(), false);
 
     BOOST_CHECK(config.hasEquil());
     BOOST_CHECK_NO_THROW(config.getEquil());
@@ -336,7 +356,7 @@ BOOST_AUTO_TEST_CASE(InitConfigWithEquil)
 BOOST_AUTO_TEST_CASE(InitConfigWithStrEquil)
 {
     const auto deck = createDeck(deckWithStrEquil());
-    const InitConfig config(deck, Runspec(deck).phases());
+    const InitConfig config(deck, Runspec(deck).phases(), false);
 
     BOOST_CHECK(config.hasStressEquil());
     BOOST_CHECK_NO_THROW(config.getStressEquil());
@@ -345,7 +365,7 @@ BOOST_AUTO_TEST_CASE(InitConfigWithStrEquil)
 BOOST_AUTO_TEST_CASE(EquilOperations)
 {
     const auto deck = createDeck(deckWithEquil());
-    const InitConfig config(deck, Runspec(deck).phases());
+    const InitConfig config(deck, Runspec(deck).phases(), false);
 
     const auto& equil = config.getEquil();
 
@@ -367,10 +387,55 @@ BOOST_AUTO_TEST_CASE(EquilOperations)
     BOOST_CHECK_EQUAL(20, record.initializationTargetAccuracy());
 }
 
+BOOST_AUTO_TEST_CASE(CompositionalEquilOperations)
+{
+    // EQUIL record:
+    //   2050   150   2300   0   2050   0   1*  1*   0   3   0 /
+    // Items 1-6: depths and capillary pressures
+    // Items 7-8: defaulted (1*) => 0 => live_oil/wet_gas init true (<=0)
+    // Item  9: OIP_INIT = 0
+    // Item 10: COMP_INIT_TYPE = 3
+    // Item 11: COMP_NOT_SET_SAT_PRESSURE = 0 (=> setToSaturaionPressure = true)
+    const auto deck = createDeck(deckWithCompositionalEquil());
+    const InitConfig config(deck, Runspec(deck).phases(), true);
+
+    BOOST_CHECK(config.hasEquil());
+    const auto& equil = config.getEquil();
+
+    BOOST_CHECK(! equil.empty());
+    BOOST_CHECK_EQUAL(1U, equil.size());
+
+    const auto& record = equil.getRecord(0);
+
+    // Items 1-6: datum depth, pressure, contacts, capillary pressures
+    BOOST_CHECK_CLOSE(2050.0, record.datumDepth(), 1e-12);
+    BOOST_CHECK_CLOSE(150.0 * unit::barsa, record.datumDepthPressure(), 1e-12);
+    BOOST_CHECK_CLOSE(2300.0, record.waterOilContactDepth(), 1e-12);
+    BOOST_CHECK_CLOSE(0.0, record.waterOilContactCapillaryPressure(), 1e-12);
+    BOOST_CHECK_CLOSE(2050.0, record.gasOilContactDepth(), 1e-12);
+    BOOST_CHECK_CLOSE(0.0, record.gasOilContactCapillaryPressure(), 1e-12);
+
+    // Items 7-8: defaulted to 0, so live-oil and wet-gas init are true
+    BOOST_CHECK(record.liveOilInitConstantRs());
+    BOOST_CHECK(record.wetGasInitConstantRv());
+
+    // Item 9: OIP_INIT = 0
+    BOOST_CHECK_EQUAL(0, record.initializationTargetAccuracy());
+
+    // Item 10: COMP_INIT_TYPE = 3
+    BOOST_CHECK_EQUAL(3, record.compositionalInitType());
+
+    // Item 11: COMP_NOT_SET_SAT_PRESSURE = 0 => saturation pressure IS set
+    BOOST_CHECK(record.setToSaturaionPressure());
+
+    // Item 12: defaulted to 0 => humid gas init is true (<=0)
+    BOOST_CHECK(record.humidGasInitConstantRvw());
+}
+
 BOOST_AUTO_TEST_CASE(StrEquilOperations)
 {
     const auto deck = createDeck(deckWithStrEquil());
-    const InitConfig config(deck, Runspec(deck).phases());
+    const InitConfig config(deck, Runspec(deck).phases(), false);
 
     const auto& equil = config.getStressEquil();
 
@@ -419,25 +484,25 @@ BOOST_AUTO_TEST_CASE(RestartCWD)
 
     {
         const Deck deck = Parser{}.parseFile("simulation/CASE.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
+        const InitConfig init_config(deck, Runspec(deck).phases(), false);
         BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "simulation/BASE");
     }
 
     {
         const Deck deck = Parser{}.parseFile("simulation/CASE5.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
+        const InitConfig init_config(deck, Runspec(deck).phases(), false);
         BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
     }
 
     {
         const Deck deck = Parser{}.parseFile("CWD_CASE.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
+        const InitConfig init_config(deck, Runspec(deck).phases(), false);
         BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "BASE");
     }
 
     {
         const Deck deck = Parser{}.parseFile("CASE5.DATA");
-        const InitConfig init_config(deck, Runspec(deck).phases());
+        const InitConfig init_config(deck, Runspec(deck).phases(), false);
         BOOST_CHECK_EQUAL(init_config.getRestartRootName(), "/abs/path/BASE");
     }
 }

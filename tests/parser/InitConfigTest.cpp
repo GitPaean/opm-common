@@ -273,6 +273,30 @@ SKIPREST
 )" };
     }
 
+    std::string deckWithCompositionalStrEquil()
+    {
+        return { R"(RUNSPEC
+METRIC
+DIMENS
+ 10 10 10 /
+EQLDIMS
+1  100  20  1  1  /
+OIL
+WATER
+GAS
+COMPS
+3 /
+SOLUTION
+STREQUIL
+1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 /
+/
+GRID
+START             -- 0
+19 JUN 2007 /
+SCHEDULE
+)" };
+    }
+
     Deck createDeck(const std::string& input)
     {
         auto deck = Parser{}.parseString(input);
@@ -363,6 +387,12 @@ BOOST_AUTO_TEST_CASE(InitConfigWithStrEquil)
 
     BOOST_CHECK(config.hasStressEquil());
     BOOST_CHECK_NO_THROW(config.getStressEquil());
+}
+
+BOOST_AUTO_TEST_CASE(InitConfigWithCompositionalStrEquil)
+{
+    const auto deck = createDeck(deckWithCompositionalStrEquil());
+    BOOST_CHECK_THROW(InitConfig(deck, Runspec(deck).phases(), Runspec(deck).compositionalMode()), OpmInputError);
 }
 
 BOOST_AUTO_TEST_CASE(EquilOperations)

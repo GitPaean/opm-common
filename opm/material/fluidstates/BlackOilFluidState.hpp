@@ -135,7 +135,8 @@ template <class ValueT,
           bool enableSaltPrecipitation = false,
           bool enableDissolutionInWater = false,
           bool enableSolvent = false,
-          unsigned numStoragePhases = FluidSystemT::numPhases>
+          unsigned numStoragePhases = FluidSystemT::numPhases,
+          bool enableTotalSaturation = false>
 class BlackOilFluidState
 {
 public:
@@ -150,7 +151,8 @@ template <class OtherScalarT,
           bool otherEnableSaltPrecipitation,
           bool otherEnableDissolutionInWater,
           bool otherEnableSolvent,
-          unsigned otherNumStoragePhases>
+          unsigned otherNumStoragePhases,
+          bool otherEnableTotalSaturation>
 friend class BlackOilFluidState;
 
     using FluidSystem = FluidSystemT;
@@ -203,7 +205,8 @@ friend class BlackOilFluidState;
             enableSaltPrecipitation,
             enableDissolutionInWater,
             enableSolvent,
-            numStoragePhases
+            numStoragePhases,
+            enableTotalSaturation
         >(other);
 
         bfstate.assign(*this);
@@ -289,7 +292,9 @@ friend class BlackOilFluidState;
         unsigned pvtRegionIdx = getPvtRegionIndex_<FluidState>(fs);
         setPvtRegionIndex(pvtRegionIdx);
 
-        setTotalSaturation(fs.totalSaturation());
+        if constexpr (enableTotalSaturation) {
+            setTotalSaturation(fs.totalSaturation());
+        }
 
         if constexpr (enableDissolution) {
             setRs(BlackOil::getRs_<FluidSystem, FluidState, ValueType>(fs, pvtRegionIdx));
@@ -347,10 +352,15 @@ friend class BlackOilFluidState;
 
     /*!
      * \brief Set the total saturation used for sequential methods
+     *
+     * If the enableTotalSaturation template argument is not set to true,
+     * this method is a no-op (sequential methods are not currently used).
      */
-    OPM_HOST_DEVICE void setTotalSaturation(const ValueType& value)
+    OPM_HOST_DEVICE void setTotalSaturation([[maybe_unused]] const ValueType& value)
     {
-        totalSaturation_ = value;
+        if constexpr (enableTotalSaturation) {
+            *totalSaturation_ = value;
+        }
     }
 
     /*!
@@ -473,10 +483,17 @@ friend class BlackOilFluidState;
 
     /*!
      * \brief Return the total saturation needed for sequential
+     *
+     * If the enableTotalSaturation template argument is not set to true,
+     * this method returns zero (sequential methods are not currently used).
      */
-    OPM_HOST_DEVICE const ValueType& totalSaturation() const
+    OPM_HOST_DEVICE ValueType totalSaturation() const
     {
-        return totalSaturation_;
+        if constexpr (enableTotalSaturation) {
+            return *totalSaturation_;
+        } else {
+            return ValueType{0.0};
+        }
     }
 
     /*!
@@ -866,7 +883,7 @@ private:
 
     ConditionalStorage<storeTemperature, ValueType> temperature_{};
     ConditionalStorage<storeEnthalpy, std::array<ValueType, numStoragePhases> > enthalpy_{};
-    ValueType totalSaturation_{};
+    ConditionalStorage<enableTotalSaturation, ValueType> totalSaturation_{};
     std::array<ValueType, numStoragePhases> pressure_{};
     std::array<ValueType, numStoragePhases> saturation_{};
     std::array<ValueType, numStoragePhases> invB_{};

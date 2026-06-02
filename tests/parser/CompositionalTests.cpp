@@ -140,6 +140,14 @@ SSHIFT
 0.11 0.21 0.31 /
 
 
+OMEGAA
+0.5 1* 0.45 /
+1* /
+
+OMEGAB
+1* 0.08 -1 /
+0.09 1* 0.10 /
+
 STCOND
 15.0 /
 
@@ -406,6 +414,31 @@ BOOST_AUTO_TEST_CASE(CompositionalParsingTest) {
         const auto& vs1 = comp_config.volumeShifts(1);
         BOOST_CHECK_EQUAL(num_comps, vs1.size());
         check_vectors_close(std::vector<double>{0.11, 0.21, 0.31}, vs1, tolerance);
+    }
+
+    {
+        // OMEGAA / OMEGAB: region 0 uses PR defaults, region 1 uses SRK defaults.
+        constexpr double pr_omega_a  = 0.457235529;
+        constexpr double pr_omega_b  = 0.077796074;
+        constexpr double srk_omega_a = 0.4274802;
+        constexpr double srk_omega_b = 0.08664035;
+
+        const auto& oa0 = comp_config.omegaA(0);
+        BOOST_CHECK_EQUAL(num_comps, oa0.size());
+        // second value defaulted (-1), first/third overridden
+        check_vectors_close(std::vector<double>{0.5, pr_omega_a, 0.45}, oa0, tolerance);
+        const auto& oa1 = comp_config.omegaA(1);
+        BOOST_CHECK_EQUAL(num_comps, oa1.size());
+        // entire region defaulted -> SRK defaults
+        check_vectors_close(std::vector<double>{srk_omega_a, srk_omega_a, srk_omega_a}, oa1, tolerance);
+
+        const auto& ob0 = comp_config.omegaB(0);
+        BOOST_CHECK_EQUAL(num_comps, ob0.size());
+        // first value defaulted, second overridden, third explicitly -1 (kept as default)
+        check_vectors_close(std::vector<double>{pr_omega_b, 0.08, pr_omega_b}, ob0, tolerance);
+        const auto& ob1 = comp_config.omegaB(1);
+        BOOST_CHECK_EQUAL(num_comps, ob1.size());
+        check_vectors_close(std::vector<double>{0.09, srk_omega_b, 0.10}, ob1, tolerance);
     }
 
     EclipseState es(deck);

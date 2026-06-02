@@ -36,6 +36,7 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/E.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/M.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/N.hpp>
+#include <opm/input/eclipse/Parser/ParserKeywords/O.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/P.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/S.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/T.hpp>
@@ -45,6 +46,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <optional>
@@ -56,18 +58,28 @@
 
 namespace {
 
-    // The following function is used to parse compositional related keywords:
-    // MW, ACF, BIC, PCRIT, TCRIT, VCRIT and SSHIFT, and so on.
+    // Parse a compositional keyword (MW, ACF, BIC, PCRIT, TCRIT, VCRIT, OMEGAA, OMEGAB).
+    // region_defaults: per-EOS-type defaults; pre-populates target even if keyword is absent.
+    // only_positive_override: only positive deck values overwrite region_defaults.
     template <typename Keyword>
     void processKeyword(const Opm::PROPSSection& props_section,
                         std::vector<std::vector<double>>& target,
                         const std::size_t num_eos_res,
                         const std::size_t num_values,
-                        const std::optional<double> default_value = std::nullopt)
+                        const std::optional<double> default_value = std::nullopt,
+                        const std::vector<double>& region_defaults = {},
+                        const bool only_positive_override = false)
     {
-        // For keywords with default values, populate the target with the default
-        // value even if the keyword is not specified.
-        // Note: This may need revisiting if more defaultable keywords are added.
+        const bool has_region_defaults = !region_defaults.empty();
+        assert(!has_region_defaults || region_defaults.size() == num_eos_res);
+
+        // Pre-populate target with per-region defaults (valid data even when keyword is absent).
+        if (has_region_defaults) {
+            target.resize(num_eos_res);
+            for (std::size_t r = 0; r < num_eos_res; ++r) {
+                target[r].assign(num_values, region_defaults[r]);
+            }
+        }
         if (! props_section.hasKeyword<Keyword>() ) {
             if (default_value.has_value()) {
                 target.assign(num_eos_res,std::vector(num_values, default_value.value()));
@@ -76,7 +88,16 @@ namespace {
             return;
         }
 
-        target.assign(num_eos_res,std::vector(num_values, default_value.value_or(0.0)));
+        if (!has_region_defaults) {
+            target.resize(num_eos_res);
+            for (auto& vec : target) {
+                if (default_value.has_value()) {
+                    vec.resize(num_values, default_value.value());
+                } else {
+                    vec.resize(num_values);
+                }
+            }
+        }
 
         const auto& kw_name = Keyword::keywordName;
         const auto& keywords = props_section.get<Keyword>();
@@ -101,10 +122,11 @@ namespace {
             };
         }
 
+        const bool has_default = default_value.has_value() || has_region_defaults;
         for (std::size_t i = 0; i < kw.size(); ++i) {
             const auto& item = kw.getRecord(i).template getItem<typename Keyword::DATA>();
             const auto& data = item.getSIDoubleData();
-            if (! default_value.has_value()) {
+            if (!has_default) {
                 // when there is no default values, we should specify all the values
                 if (data.size() != num_values) {
                     const auto msg = fmt::format("in keyword {}, {} values are specified, "
@@ -125,10 +147,17 @@ namespace {
                 throw Opm::OpmInputError(msg, kw.location());
             }
 
-            // using copy here to consider the situation that there is
-            // default values, we might not specify all the values and keep
-            // the rest to be the default values
-            std::ranges::copy(data, target[i].begin());
+            if (only_positive_override) {
+                // Only positive values override the per-region default.
+                for (std::size_t c = 0; c < data.size(); ++c) {
+                    if (data[c] > 0.0) {
+                        target[i][c] = data[c];
+                    }
+                }
+            } else {
+                // Copy supplied values; remaining positions keep their default.
+                std::ranges::copy(data, target[i].begin());
+            }
         }
     }
 
@@ -148,6 +177,8 @@ namespace {
             std::pair {"ACF"sv,    section.hasKeyword<Opm::ParserKeywords::ACF>() },
             std::pair {"BIC"sv,    section.hasKeyword<Opm::ParserKeywords::BIC>() },
             std::pair {"PRCORR"sv, section.hasKeyword<Opm::ParserKeywords::PRCORR>() },
+            std::pair {"OMEGAA"sv, section.hasKeyword<Opm::ParserKeywords::OMEGAA>() },
+            std::pair {"OMEGAB"sv, section.hasKeyword<Opm::ParserKeywords::OMEGAB>() },
         };
 
         bool any_comp_prop_kw = false;
@@ -316,6 +347,35 @@ CompositionalConfig::CompositionalConfig(const Deck& deck, const Runspec& runspe
     const std::size_t bic_size = this->num_comps * (this->num_comps - 1) / 2;
     processKeyword<ParserKeywords::BIC>(props_section, this->binary_interaction_coefficient,
                                         num_eos_res, bic_size, 0.);
+
+    // OMEGAA/OMEGAB defaults are EOS-type dependent; only positive values override them.
+    std::vector<double> omega_a_defaults(num_eos_res);
+    std::vector<double> omega_b_defaults(num_eos_res);
+    for (std::size_t r = 0; r < num_eos_res; ++r) {
+        switch (eos_types[r]) {
+            case EOSType::PR:
+            case EOSType::PRCORR:
+                omega_a_defaults[r] = 0.457235529;
+                omega_b_defaults[r] = 0.077796074;
+                break;
+            case EOSType::RK:
+            case EOSType::SRK:
+            case EOSType::ZJ:
+                omega_a_defaults[r] = 0.4274802;
+                omega_b_defaults[r] = 0.08664035;
+                break;
+        }
+    }
+    processKeyword<ParserKeywords::OMEGAA>(props_section, this->omega_a,
+                                           num_eos_res, this->num_comps,
+                                           /*default_value=*/std::nullopt,
+                                           omega_a_defaults,
+                                           /*only_positive_override=*/true);
+    processKeyword<ParserKeywords::OMEGAB>(props_section, this->omega_b,
+                                           num_eos_res, this->num_comps,
+                                           /*default_value=*/std::nullopt,
+                                           omega_b_defaults,
+                                           /*only_positive_override=*/true);
 }
 
 bool CompositionalConfig::operator==(const CompositionalConfig& other) const {
@@ -330,7 +390,9 @@ bool CompositionalConfig::operator==(const CompositionalConfig& other) const {
            this->critical_temperature == other.critical_temperature &&
            this->critical_volume == other.critical_volume &&
            this->volume_shifts == other.volume_shifts &&
-           this->binary_interaction_coefficient == other.binary_interaction_coefficient;
+           this->binary_interaction_coefficient == other.binary_interaction_coefficient &&
+           this->omega_a == other.omega_a &&
+           this->omega_b == other.omega_b;
 }
 
 
@@ -349,6 +411,8 @@ CompositionalConfig CompositionalConfig::serializationTestObject() {
     result.critical_volume = {2, std::vector<double>(result.num_comps, 5.)};
     result.volume_shifts = {2, std::vector<double>(result.num_comps, 0.1)};
     result.binary_interaction_coefficient = {2, std::vector<double>(result.num_comps * (result.num_comps - 1) / 2, 6.)};
+    result.omega_a = {2, std::vector<double>(result.num_comps, 0.457235529)};
+    result.omega_b = {2, std::vector<double>(result.num_comps, 0.077796074)};
 
     return result;
 }
@@ -415,6 +479,14 @@ const std::vector<double>& CompositionalConfig::volumeShifts(std::size_t eos_reg
 
 const std::vector<double>& CompositionalConfig::binaryInteractionCoefficient(std::size_t eos_region) const {
     return this->binary_interaction_coefficient[eos_region];
+}
+
+const std::vector<double>& CompositionalConfig::omegaA(std::size_t eos_region) const {
+    return this->omega_a[eos_region];
+}
+
+const std::vector<double>& CompositionalConfig::omegaB(std::size_t eos_region) const {
+    return this->omega_b[eos_region];
 }
 
 std::size_t CompositionalConfig::numComps() const {

@@ -65,6 +65,8 @@ public:
     const std::vector<double>& criticalVolume(std::size_t eos_region) const;
     const std::vector<double>& volumeShifts(std::size_t eos_region) const;
     const std::vector<double>& binaryInteractionCoefficient(std::size_t eos_region) const;
+    const std::vector<double>& omegaA(std::size_t eos_region) const;
+    const std::vector<double>& omegaB(std::size_t eos_region) const;
     std::size_t numComps() const;
 
     template<class Serializer>
@@ -82,6 +84,8 @@ public:
         serializer(critical_volume);
         serializer(volume_shifts);
         serializer(binary_interaction_coefficient);
+        serializer(omega_a);
+        serializer(omega_b);
     }
 
 private:
@@ -99,6 +103,8 @@ private:
     std::vector<std::vector<double>> critical_volume;
     std::vector<std::vector<double>> volume_shifts;
     std::vector<std::vector<double>> binary_interaction_coefficient;
+    std::vector<std::vector<double>> omega_a;
+    std::vector<std::vector<double>> omega_b;
 };
 
 }

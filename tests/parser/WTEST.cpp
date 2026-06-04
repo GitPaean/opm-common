@@ -74,12 +74,26 @@ BOOST_AUTO_TEST_CASE(WTEST_STATE) {
     WellTestState st;
     st.close_well("WELL_NAME", WellTestConfig::Reason::ECONOMIC, 100. * day);
     BOOST_CHECK_EQUAL(st.num_closed_wells(), 1U);
+    BOOST_CHECK(!st.well_closed_due_to_all_completions_closed("WELL_NAME"));
+
+    st.close_completion("WELL_NAME", 1, 100. * day);
+    st.close_well_due_to_all_completions_closed("WELL_NAME", WellTestConfig::Reason::ECONOMIC, 100. * day);
+    BOOST_CHECK(st.well_is_closed("WELL_NAME"));
+    BOOST_CHECK(st.well_closed_due_to_all_completions_closed("WELL_NAME"));
+
+    st.open_completion("WELL_NAME", 1);
+    BOOST_CHECK(!st.well_closed_due_to_all_completions_closed("WELL_NAME"));
+
+    st.close_well_due_to_all_completions_closed("WELL_NAME", WellTestConfig::Reason::ECONOMIC, 100. * day);
+    BOOST_CHECK(st.well_closed_due_to_all_completions_closed("WELL_NAME"));
 
     st.open_well("WELL_NAME");
     BOOST_CHECK_EQUAL(st.num_closed_wells(), 0);
+    BOOST_CHECK(!st.well_closed_due_to_all_completions_closed("WELL_NAME"));
 
     st.close_well("WELL_NAME", WellTestConfig::Reason::ECONOMIC, 100. * day);
     BOOST_CHECK_EQUAL(st.num_closed_wells(), 1U);
+    BOOST_CHECK(!st.well_closed_due_to_all_completions_closed("WELL_NAME"));
 
     st.close_well("WELL_NAME", WellTestConfig::Reason::PHYSICAL, 100. * day);
     BOOST_CHECK_EQUAL(st.num_closed_wells(), 1U);

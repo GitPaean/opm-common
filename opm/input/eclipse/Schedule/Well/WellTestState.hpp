@@ -100,6 +100,7 @@ public:
 
         int num_attempt{0};
         bool closed{true};
+        bool closed_due_to_all_completions_closed{false};
         std::optional<int> wtest_report_step{};
 
         WTestWell() = default;
@@ -114,6 +115,7 @@ public:
                    this->last_test == other.last_test &&
                    this->num_attempt == other.num_attempt &&
                    this->closed == other.closed &&
+                   this->closed_due_to_all_completions_closed == other.closed_due_to_all_completions_closed &&
                    this->wtest_report_step == other.wtest_report_step;
         }
 
@@ -127,6 +129,7 @@ public:
             serializer(this->last_test);
             serializer(this->num_attempt);
             serializer(this->closed);
+            serializer(this->closed_due_to_all_completions_closed);
             serializer(this->wtest_report_step);
         }
 
@@ -137,6 +140,7 @@ public:
             buffer.write(this->last_test);
             buffer.write(this->num_attempt);
             buffer.write(this->closed);
+            buffer.write(this->closed_due_to_all_completions_closed);
             buffer.write(this->wtest_report_step);
         }
 
@@ -147,6 +151,7 @@ public:
             buffer.read(this->last_test);
             buffer.read(this->num_attempt);
             buffer.read(this->closed);
+            buffer.read(this->closed_due_to_all_completions_closed);
             buffer.read(this->wtest_report_step);
         }
     };
@@ -216,7 +221,9 @@ public:
       That is the reason we do not have any xxx_is_open() predicates.
     */
     void close_well(const std::string& well_name, WTest::Reason reason, double sim_time);
+    void close_well_due_to_all_completions_closed(const std::string& well_name, WTest::Reason reason, double sim_time);
     bool well_is_closed(const std::string& well_name) const;
+    bool well_closed_due_to_all_completions_closed(const std::string& well_name) const;
     void open_well(const std::string& well_name);
     std::size_t num_closed_wells() const;
     double lastTestTime(const std::string& well_name) const;

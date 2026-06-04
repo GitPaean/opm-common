@@ -85,7 +85,9 @@ namespace Opm {
 
 
     WellTestState::WTestWell WellTestState::WTestWell::serializationTestObject() {
-        return WTestWell("Name", WellTestConfig::Reason::GROUP, 123.45);
+        auto well = WTestWell("Name", WellTestConfig::Reason::GROUP, 123.45);
+        well.closed_due_to_all_completions_closed = true;
+        return well;
     }
 
 
@@ -97,17 +99,28 @@ namespace Opm {
             well_iter->second.closed = true;
             well_iter->second.last_test = sim_time;
             well_iter->second.reason = reason;
+            well_iter->second.closed_due_to_all_completions_closed = false;
         }
+    }
+
+
+    void WellTestState::close_well_due_to_all_completions_closed(const std::string& well_name, WellTestConfig::Reason reason, double sim_time) {
+        this->close_well(well_name, reason, sim_time);
+        this->wells.at(well_name).closed_due_to_all_completions_closed = true;
     }
 
 
     void WellTestState::open_well(const std::string& well_name) {
         auto& well = this->wells.at(well_name);
         well.closed = false;
+        well.closed_due_to_all_completions_closed = false;
     }
 
     void WellTestState::open_completions(const std::string& well_name) {
         this->completions.erase( well_name );
+        auto well_iter = this->wells.find(well_name);
+        if (well_iter != this->wells.end())
+            well_iter->second.closed_due_to_all_completions_closed = false;
     }
 
 
@@ -120,11 +133,22 @@ namespace Opm {
     }
 
 
+    bool WellTestState::well_closed_due_to_all_completions_closed(const std::string& well_name) const {
+        auto iter = this->wells.find(well_name);
+        if (iter == this->wells.end())
+            return false;
+
+        return iter->second.closed && iter->second.closed_due_to_all_completions_closed;
+    }
+
+
     void WellTestState::filter_wells(const std::vector<std::string>& existing_wells) {
         std::unordered_set<std::string> well_set{ existing_wells.begin(), existing_wells.end() };
         for (auto& [wname, test_well] : this->wells) {
-            if (well_set.count(wname) == 0)
+            if (well_set.count(wname) == 0) {
                 test_well.closed = false;
+                test_well.closed_due_to_all_completions_closed = false;
+            }
         }
     }
 
@@ -192,6 +216,10 @@ namespace Opm {
 
         auto& well_map = well_iter->second;
         well_map.erase(complnum);
+
+        auto test_well_iter = this->wells.find(well_name);
+        if (test_well_iter != this->wells.end())
+            test_well_iter->second.closed_due_to_all_completions_closed = false;
 
         if (well_map.empty())
             this->completions.erase(well_name);

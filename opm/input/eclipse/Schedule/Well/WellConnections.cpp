@@ -1070,8 +1070,9 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
     void WellConnections::orderTRACK()
     {
         // Find the first connection and swap it into the 0-position.
+        // No previous K is known, so use IJ + depth only (shallowest wins).
         const double surface_z = 0.0;
-        std::size_t first_index = findClosestConnection(this->headI, this->headJ, 0, surface_z, 0);
+        std::size_t first_index = findEntryConnection(this->headI, this->headJ, surface_z);
         std::swap(m_connections[first_index], m_connections[0]);
 
         // Repeat for remaining connections.
@@ -1090,6 +1091,33 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
             std::size_t next_index = findClosestConnection(prev.getI(), prev.getJ(), prev.getK(), prevz, pos);
             std::swap(m_connections[next_index], m_connections[pos]);
         }
+    }
+
+    std::size_t WellConnections::findEntryConnection(int oi, int oj, double oz)
+    {
+        std::size_t closest = std::numeric_limits<std::size_t>::max();
+        int min_ijdist2 = std::numeric_limits<int>::max();
+        double min_zdiff = std::numeric_limits<double>::max();
+        for (std::size_t pos = 0; pos < m_connections.size(); ++pos) {
+            const auto& connection = m_connections[pos];
+            const double depth = connection.depth();
+            const int ci = connection.getI();
+            const int cj = connection.getJ();
+            const int ijdist2 = (ci - oi) * (ci - oi) + (cj - oj) * (cj - oj);
+            if (ijdist2 < min_ijdist2) {
+                min_ijdist2 = ijdist2;
+                min_zdiff = std::abs(depth - oz);
+                closest = pos;
+            } else if (ijdist2 == min_ijdist2) {
+                const double zdiff = std::abs(depth - oz);
+                if (zdiff < min_zdiff) {
+                    min_zdiff = zdiff;
+                    closest = pos;
+                }
+            }
+        }
+        assert(closest != std::numeric_limits<std::size_t>::max());
+        return closest;
     }
 
     std::size_t WellConnections::findClosestConnection(int oi, int oj, int ok, double oz, std::size_t start_pos)

@@ -144,7 +144,8 @@ namespace Opm {
         ///        to be the first connection. If non-unique, choose one with
         ///        lowest z-depth (shallowest).
         ///     2. Choose next connection to be nearest to current in (i, j) sense.
-        ///        If non-unique choose closest in z-depth (not logical cartesian k).
+        ///        If non-unique, prefer smallest K-distance to previous connection,
+        ///        then smallest z-depth difference.
         ///
         /// \param[in] well_i  logical cartesian i-coordinate of well head
         /// \param[in] well_j  logical cartesian j-coordinate of well head
@@ -210,6 +211,7 @@ namespace Opm {
                            int lgr_grid_number,
                            const bool defaultSatTabId);
 
+        std::size_t findEntryConnection(int oi, int oj, double oz);
         std::size_t findClosestConnection(int oi, int oj, int ok, double oz, std::size_t start_pos);
         void orderTRACK();
         void orderMSW();

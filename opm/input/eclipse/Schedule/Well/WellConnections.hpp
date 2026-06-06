@@ -74,6 +74,17 @@ namespace Opm {
             this->m_connections.push_back(conn);
         }
 
+        /// Clear the transient per-report-step open-request signal on every
+        /// connection.  Used before recording a fresh set of explicit open
+        /// requests so that signals inherited from a previous report step do
+        /// not leak into the current one.
+        void resetOpenCompletionRequests()
+        {
+            for (auto& conn : this->m_connections) {
+                conn.setOpenCompletionRequest(false);
+            }
+        }
+
         void addConnection(const int i, const int j, const int k,
                            const std::size_t global_index,
                            const Connection::State state,

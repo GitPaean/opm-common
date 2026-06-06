@@ -107,6 +107,14 @@ namespace Opm
 
             /// TUNINGDP has changed
             TUNINGDP_CHANGE = (UINT64_C(1) << 23),
+
+            /// WELOPEN, COMPDAT and COMPDATL can set an individual
+            /// connection to be OPEN, possibly opening a connection that
+            /// was previously closed (e.g., by the well testing mechanism
+            /// due to an economic or physical limit).  Analogue to
+            /// REQUEST_OPEN_WELL, but for individual connections rather
+            /// than whole wells.
+            REQUEST_OPEN_COMPLETION = (UINT64_C(1) << 24),
         };
     } // namespace ScheduleEvents
 

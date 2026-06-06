@@ -1517,7 +1517,8 @@ int Well::fip_region_number() const
 // runtime flag here which makes sure to close the well in this case.
 
 bool Well::handleWELOPENConnections(const DeckRecord& record,
-                                    const Connection::State state_arg)
+                                    const Connection::State state_arg,
+                                    const bool reset_open_request)
 {
     auto match = [&record](const Connection &c) -> bool
     {
@@ -1530,19 +1531,34 @@ bool Well::handleWELOPENConnections(const DeckRecord& record,
         return true;
     };
 
+    const bool request_open = (state_arg == Connection::State::OPEN);
+
     auto new_connections = std::make_shared<WellConnections>
         (this->connections->ordering(), this->headI, this->headJ);
 
     for (const auto& connection : *this->connections) {
         if (! match(connection)) {
             // No state change needed here.  Include connection as-is into
-            // new connection set.
-            new_connections->add(connection);
+            // the new connection set, but clear any stale open-request
+            // signal from a previous report step when this is the first
+            // open request touching the well in the current step.
+            if (reset_open_request && connection.openCompletionRequest()) {
+                auto connection_copy = connection;
+                connection_copy.setOpenCompletionRequest(false);
+                new_connections->add(connection_copy);
+            }
+            else {
+                new_connections->add(connection);
+            }
             continue;
         }
 
         auto connection_copy = connection;
         connection_copy.setState(state_arg);
+        // Record (or clear) the explicit open request for this individual
+        // connection so the simulator can reopen exactly this connection if
+        // it had been closed by the well testing mechanism.
+        connection_copy.setOpenCompletionRequest(request_open);
 
         new_connections->add(connection_copy);
     }

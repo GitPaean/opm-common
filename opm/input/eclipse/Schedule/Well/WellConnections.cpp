@@ -619,12 +619,21 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
                                                   [I, J, k](const Connection& c)
                                                   { return c.sameCoordinate(I, J, k); });
 
+            // A COMPDAT record that (re)defines a connection with STATE OPEN
+            // is an explicit request to have that individual connection
+            // open - e.g. as part of a re-perforation - and should reopen it
+            // if the well testing mechanism had previously closed it.  Record
+            // this per-connection so the simulator can act on exactly the
+            // connections named here.
+            const bool request_open = (state == Connection::State::OPEN);
+
             if (prev == this->m_connections.end()) {
                 const std::size_t noConn = this->m_connections.size();
                 this->addConnection(I, J, k, cell.global_index, state,
                                     cell.depth, ctf_props, satTableId,
                                     direction, ctf_kind, noConn,
                                     lgr_grid_number, defaultSatTable);
+                this->m_connections.back().setOpenCompletionRequest(request_open);
             }
             else {
                 const auto compl_num = prev->complnum();
@@ -640,6 +649,7 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
                 };
 
                 prev->updateSegment(conSegNo, cell.depth, css_ind, perf_range);
+                prev->setOpenCompletionRequest(request_open);
             }
         }
     }

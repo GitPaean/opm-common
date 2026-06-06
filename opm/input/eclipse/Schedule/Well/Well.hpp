@@ -577,7 +577,8 @@ public:
 
     bool handleWELSEGS(const DeckKeyword& keyword);
     bool handleCOMPSEGS(const DeckKeyword& keyword, const ScheduleGrid& grid, const ParseContext& parseContext, ErrorGuard& errors);
-    bool handleWELOPENConnections(const DeckRecord& record, Connection::State status);
+    bool handleWELOPENConnections(const DeckRecord& record, Connection::State status,
+                                  bool reset_open_request);
     bool handleCSKIN(const DeckRecord& record, const KeywordLocation& location);
     bool handleCOMPLUMP(const DeckRecord& record);
     bool handleWPIMULT(const DeckRecord& record);

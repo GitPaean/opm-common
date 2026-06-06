@@ -55,11 +55,27 @@ void handleCOMPDATX(HandlerContext&    handlerContext,
         const auto wellNamePattern = record.getItem("WELL").getTrimmedString(0);
         const auto wellnames = handlerContext.wellNames(wellNamePattern);
 
+        const auto connection_status =
+            Connection::StateFromString(record.getItem("STATE").getTrimmedString(0));
+
         for (const auto& name : wellnames) {
             auto well2 = handlerContext.state().wells(name);
 
             auto connections = std::make_shared<WellConnections>(well2.getConnections());
             const auto origWellConnSetIsEmpty = connections->empty();
+
+            // The per-well REQUEST_OPEN_COMPLETION event is reset at the
+            // start of every report step.  Its absence therefore tells us
+            // that this is the first open request touching this well in the
+            // current step, in which case any open-request flags inherited
+            // from a previous step must be cleared before loadCOMPDAT records
+            // the new ones.
+            const bool first_open_request = (connection_status == Connection::State::OPEN)
+                && !handlerContext.state().wellgroup_events()
+                        .hasEvent(name, ScheduleEvents::REQUEST_OPEN_COMPLETION);
+            if (first_open_request) {
+                connections->resetOpenCompletionRequests();
+            }
 
             std::invoke(compdatKwHandler, connections,
                         record, name, well2.getWDFAC(),
@@ -97,6 +113,18 @@ void handleCOMPDATX(HandlerContext&    handlerContext,
 
             handlerContext.state().wellgroup_events()
                 .addEvent(name, ScheduleEvents::COMPLETION_CHANGE);
+
+            if (connection_status == Connection::State::OPEN) {
+                // COMPDAT/COMPDATL can (re)define a connection - possibly
+                // one that was previously closed by, e.g., the well testing
+                // mechanism due to an economic or physical limit - with an
+                // explicit OPEN status.  Signal this so the simulator can
+                // override any such closure, analogous to the same handling
+                // for WELOPEN.  The exact connections are identified by their
+                // per-connection open-request flag.
+                handlerContext.state().wellgroup_events()
+                    .addEvent(name, ScheduleEvents::REQUEST_OPEN_COMPLETION);
+            }
         }
     }
 

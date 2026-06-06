@@ -938,3 +938,120 @@ BOOST_AUTO_TEST_CASE(TestWellEvents) {
     BOOST_CHECK( sched[0].wellgroup_events().hasEvent( "W_1", ScheduleEvents::COMPLETION_CHANGE));
     BOOST_CHECK( sched[5].wellgroup_events().hasEvent( "W_1", ScheduleEvents::COMPLETION_CHANGE));
 }
+
+
+BOOST_AUTO_TEST_CASE(TestRequestOpenCompletionEvents) {
+    // REQUEST_OPEN_COMPLETION should be raised whenever a keyword
+    // explicitly requests an individual connection to be OPEN - this lets
+    // the simulator know that it should override any previous closure of
+    // that connection (e.g., by the well testing mechanism).  It must *not*
+    // be raised when a connection is requested SHUT, nor when the keyword
+    // only addresses the well as a whole (that case is covered by the
+    // REQUEST_OPEN_WELL/REQUEST_SHUT_WELL events instead).
+    const std::string input = R"(
+START
+ 19 JUN 2007 /
+GRID
+PORO
+  1000*0.1 /
+PERMX
+  1000*1 /
+PERMY
+  1000*0.1 /
+PERMZ
+  1000*0.01 /
+SCHEDULE
+DATES   -- 1
+ 10 OKT 2008 /
+/
+WELSPECS
+   'OP_1'  'OP'  9 9 1* 'OIL' 1* 1* 1* 1* 1* 1* /
+/
+COMPDAT
+ 'OP_1'  9 9 1 1 'OPEN' 1*   32.948  0.311  3047.839 1* 1* 'X' 22.100 /
+ 'OP_1'  9 9 2 2 'OPEN' 1*   32.948  0.311  3047.839 1* 1* 'X' 22.100 /
+/
+DATES   -- 2
+ 11 OKT 2008 /
+/
+WELOPEN
+ 'OP_1' 'SHUT' 3* 1 1 /
+/
+DATES   -- 3
+ 12 OKT 2008 /
+/
+WELOPEN
+ 'OP_1' 'OPEN' 3* 1 1 /
+/
+DATES   -- 4
+ 13 OKT 2008 /
+/
+WELOPEN
+ 'OP_1' 'OPEN' /
+/
+DATES   -- 5
+ 14 OKT 2008 /
+/
+COMPDAT
+ 'OP_1'  9 9 1 1 'OPEN' 1*   35.0    0.311  3047.839 1* 1* 'X' 22.100 /
+/
+)";
+
+    const auto deck = Parser{}.parseString(input);
+    EclipseGrid grid(10, 10, 10);
+    const TableManager table ( deck );
+    const FieldPropsManager fp(deck, Phases{true, true, true}, grid, table);
+    const Runspec runspec (deck);
+    const Schedule sched {
+        deck, grid, fp, NumericalAquifers{},
+        runspec, std::make_shared<Python>()
+    };
+
+    // Step 1: WELSPECS + COMPDAT define two connections, both with STATE
+    // OPEN - this is an explicit OPEN request for each connection.
+    BOOST_CHECK( sched[1].wellgroup_events().hasEvent("OP_1", ScheduleEvents::REQUEST_OPEN_COMPLETION));
+
+    // Step 2: WELOPEN explicitly SHUTs connection 1 - no OPEN request.
+    BOOST_CHECK(!sched[2].wellgroup_events().hasEvent("OP_1", ScheduleEvents::REQUEST_OPEN_COMPLETION));
+
+    // Step 3: WELOPEN explicitly re-OPENs connection 1.
+    BOOST_CHECK( sched[3].wellgroup_events().hasEvent("OP_1", ScheduleEvents::REQUEST_OPEN_COMPLETION));
+
+    // Step 4: WELOPEN with all connection items defaulted addresses the
+    // well as a whole - REQUEST_OPEN_WELL is raised, but *not*
+    // REQUEST_OPEN_COMPLETION (no individual connection is targeted).
+    BOOST_CHECK( sched[4].wellgroup_events().hasEvent("OP_1", ScheduleEvents::REQUEST_OPEN_WELL));
+    BOOST_CHECK(!sched[4].wellgroup_events().hasEvent("OP_1", ScheduleEvents::REQUEST_OPEN_COMPLETION));
+
+    // Step 5: COMPDAT redefines connection 1 (same I, J, K1, K2) with an
+    // explicit STATE OPEN - this is also an OPEN request for that
+    // connection, e.g., as part of a re-perforation/workover sequence.
+    BOOST_CHECK( sched[5].wellgroup_events().hasEvent("OP_1", ScheduleEvents::REQUEST_OPEN_COMPLETION));
+
+    // The well-level event above only says *some* connection was requested
+    // OPEN.  The per-connection open-request flag identifies exactly which
+    // ones, so the simulator reopens only the targeted connection(s) and
+    // leaves the rest of the well's connections untouched.  Connection 1 is
+    // (9,9,1) and connection 2 is (9,9,2).
+    auto open_request = [&sched](std::size_t step, const std::string& well, int complnum) -> bool {
+        for (const auto& c : sched.getWell(well, step).getConnections()) {
+            if (c.complnum() == complnum) {
+                return c.openCompletionRequest();
+            }
+        }
+        BOOST_FAIL("connection with requested completion number not found");
+        return false;
+    };
+
+    // Step 3: WELOPEN targeted *only* connection 1.  Connection 1 must carry
+    // the open request; connection 2 must not - even though connection 2 was
+    // itself flagged open back at step 1, that stale flag is cleared on the
+    // first open request of this step so it cannot be reopened by proxy.
+    BOOST_CHECK(  open_request(3, "OP_1", 1));
+    BOOST_CHECK( !open_request(3, "OP_1", 2));
+
+    // Step 5: COMPDAT redefined *only* connection 1, so only connection 1 is
+    // flagged; connection 2 is left untouched.
+    BOOST_CHECK(  open_request(5, "OP_1", 1));
+    BOOST_CHECK( !open_request(5, "OP_1", 2));
+}

@@ -548,9 +548,20 @@ void handleWELOPEN(HandlerContext& handlerContext)
          */
         for (const auto& wname : well_names) {
             const auto connection_status = Connection::StateFromString( status_str );
+
+            // The per-well REQUEST_OPEN_COMPLETION event is reset at the
+            // start of every report step.  Its absence therefore tells us
+            // that this is the first open request touching this well in the
+            // current step, in which case any open-request flags inherited
+            // from a previous step must be cleared before we record the new
+            // ones (so we don't reopen connections that an earlier step had
+            // targeted).
+            const bool first_open_request = (connection_status == Connection::State::OPEN)
+                && !handlerContext.state().wellgroup_events()
+                        .hasEvent(wname, ScheduleEvents::REQUEST_OPEN_COMPLETION);
             {
                 auto well = handlerContext.state().wells.get(wname);
-                well.handleWELOPENConnections(record, connection_status);
+                well.handleWELOPENConnections(record, connection_status, first_open_request);
                 handlerContext.state().wells.update( std::move(well) );
             }
 
@@ -558,6 +569,15 @@ void handleWELOPEN(HandlerContext& handlerContext)
             handlerContext.record_well_structure_change();
 
             handlerContext.state().events().addEvent(ScheduleEvents::COMPLETION_CHANGE);
+            if (connection_status == Connection::State::OPEN) {
+                // Signal that an individual connection of this well is
+                // explicitly requested to be OPEN, so the simulator can
+                // override any previous closure by, e.g., the well testing
+                // mechanism.  The exact connections are identified by their
+                // per-connection open-request flag.
+                handlerContext.state().wellgroup_events()
+                    .addEvent(wname, ScheduleEvents::REQUEST_OPEN_COMPLETION);
+            }
         }
     }
 }

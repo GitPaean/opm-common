@@ -192,6 +192,7 @@ namespace Opm
         result.m_wpimult = 0.123;
         result.m_subject_to_welpi = true;
         result.m_filter_cake = FilterCake::serializationTestObject();
+        result.m_open_completion_request = true;
 
         return result;
     }
@@ -260,6 +261,16 @@ namespace Opm
     Connection::State Connection::state() const
     {
         return this->open_state;
+    }
+
+    bool Connection::openCompletionRequest() const
+    {
+        return this->m_open_completion_request;
+    }
+
+    void Connection::setOpenCompletionRequest(bool flag)
+    {
+        this->m_open_completion_request = flag;
     }
 
     int Connection::satTableId() const

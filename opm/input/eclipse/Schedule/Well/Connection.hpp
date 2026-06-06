@@ -228,6 +228,15 @@ namespace Opm {
         const std::optional<std::pair<double, double>>& perf_range() const;
         std::string str() const;
 
+        /// Whether a SCHEDULE keyword (WELOPEN/COMPDAT) has explicitly
+        /// requested this connection to be OPEN in the current report step.
+        ///
+        /// This is a transient, per-report-step signal: the simulator uses
+        /// it to reopen exactly this connection if it had previously been
+        /// closed by the well testing mechanism, without affecting any of
+        /// the well's other connections.
+        bool openCompletionRequest() const;
+
         bool ctfAssignedFromInput() const
         {
             return this->m_ctfkind == CTFKind::DeckValue;
@@ -242,6 +251,7 @@ namespace Opm {
         void setInjMult(const InjMult& inj_mult);
         void setFilterCake(const FilterCake& filter_cake);
         void setState(State state);
+        void setOpenCompletionRequest(bool flag);
         void setComplnum(int compnum);
         void setSkinFactor(double skin_factor);
         void setDFactor(double d_factor);
@@ -282,12 +292,19 @@ namespace Opm {
             serializer(this->m_wpimult);
             serializer(this->m_subject_to_welpi);
             serializer(this->m_filter_cake);
+            serializer(this->m_open_completion_request);
         }
 
     private:
         // Note to maintainer: If you add new members to this list, then
         // please also update the operator==(), serializeOp(), and
         // serializationTestObject() member functions.
+        //
+        // Exception: m_open_completion_request (declared at the end of the
+        // member list) is a transient per-report-step signal and is
+        // deliberately *not* part of operator==(): it does not describe the
+        // connection's physical identity and must not trigger spurious
+        // "connection changed" detection in updateConnections().
         Direction direction { Direction::Z };
         double center_depth { 0.0 };
         State open_state { State::SHUT };
@@ -368,6 +385,10 @@ namespace Opm {
         bool m_subject_to_welpi { false };
 
         std::optional<FilterCake> m_filter_cake{};
+
+        // Transient per-report-step signal; see note above and the
+        // openCompletionRequest() accessor. Not part of operator==().
+        bool m_open_completion_request { false };
 
         static std::string CTFKindToString(const CTFKind);
     };

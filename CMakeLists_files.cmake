@@ -296,6 +296,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/input/eclipse/Schedule/Well/PAvgCalculator.cpp
   opm/input/eclipse/Schedule/Well/PAvgCalculatorCollection.cpp
   opm/input/eclipse/Schedule/Well/PAvgDynamicSourceData.cpp
+  opm/input/eclipse/Schedule/Well/TrackOrderingTSP.cpp
   opm/input/eclipse/Schedule/Well/WCYCLE.cpp
   opm/input/eclipse/Schedule/Well/Well.cpp
   opm/input/eclipse/Schedule/Well/WellBrineProperties.cpp
@@ -647,6 +648,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/parser/TableContainerTests.cpp
   tests/parser/TableManagerTests.cpp
   tests/parser/TableSchemaTests.cpp
+  tests/parser/TestTrackOrderingTSP.cpp
   tests/parser/ThresholdPressureTest.cpp
   tests/parser/TracerTests.cpp
   tests/parser/TransMultTests.cpp
@@ -1212,6 +1214,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/input/eclipse/Schedule/Well/WVFPEXP.hpp
   opm/input/eclipse/Schedule/Well/Well.hpp
   opm/input/eclipse/Schedule/Well/WellBrineProperties.hpp
+  opm/input/eclipse/Schedule/Well/TrackOrderingTSP.hpp
   opm/input/eclipse/Schedule/Well/WellConnections.hpp
   opm/input/eclipse/Schedule/Well/WellEconProductionLimits.hpp
   opm/input/eclipse/Schedule/Well/WellEnums.hpp

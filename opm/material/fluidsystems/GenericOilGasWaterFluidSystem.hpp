@@ -145,21 +145,20 @@ namespace Opm {
             // const std::size_t num_eos_region = comp_config.
             assert(num_comps == NumComp);
             const auto& names = comp_config.compName();
-            // const auto& eos_type = comp_config.eosType(0);
-            const auto& molar_weight = comp_config.molecularWeights(0);
-            const auto& acentric_factor = comp_config.acentricFactors(0);
-            const auto& critic_pressure = comp_config.criticalPressure(0);
-            const auto& critic_temp = comp_config.criticalTemperature(0);
-            const auto& critic_volume = comp_config.criticalVolume(0);
+            const auto& eos_props = comp_config.eosProps(0);
             FluidSystem::init();
             using CompParm = typename FluidSystem::ComponentParam;
             for (std::size_t c = 0; c < num_comps; ++c) {
                 // we use m^3/kmol for the critic volume in the flash calculation, so we multiply 1.e3 for the critic volume
-                FluidSystem::addComponent(CompParm{names[c], molar_weight[c], critic_temp[c], critic_pressure[c],
-                                                   critic_volume[c] * 1.e3, acentric_factor[c]});
+                FluidSystem::addComponent(CompParm{names[c],
+                                                   eos_props.molecular_weights[c],
+                                                   eos_props.critical_temperature[c],
+                                                   eos_props.critical_pressure[c],
+                                                   eos_props.critical_volume[c] * 1.e3,
+                                                   eos_props.acentric_factors[c]});
             }
 
-            const auto& bic = comp_config.binaryInteractionCoefficient(0);
+            const auto& bic = eos_props.binary_interaction_coefficient;
             if constexpr (std::is_same_v<Scalar, double>) {
                 interaction_coefficients_ = bic;
             } else {

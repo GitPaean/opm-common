@@ -35,9 +35,9 @@ class RKParams
 
 public:
 
-    static Scalar calcOmegaA(Scalar temperature, unsigned compIdx)
+    static Scalar calcOmegaA(Scalar temperature, unsigned compIdx, unsigned regionIdx = 0)
     {
-        Scalar Tr = temperature / FluidSystem::criticalTemperature(compIdx);
+        Scalar Tr = temperature / FluidSystem::criticalTemperature(compIdx, regionIdx);
         return 0.4274802 / sqrt(Tr);
     }
 

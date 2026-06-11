@@ -129,7 +129,7 @@ public:
         averageMolarMass_[phaseIdx] = 0.0;
         for (unsigned compJIdx = 0; compJIdx < numComponents; ++compJIdx) {
             sumMoleFractions_[phaseIdx] += moleFraction_[phaseIdx][compJIdx];
-            averageMolarMass_[phaseIdx] += moleFraction_[phaseIdx][compJIdx]*FluidSystem::molarMass(compJIdx);
+            averageMolarMass_[phaseIdx] += moleFraction_[phaseIdx][compJIdx]*componentMolarMass_(compJIdx, eosRegionIdx_);
         }
     }
 
@@ -158,6 +158,11 @@ public:
     template <class FluidState>
     void assign(const FluidState& fs)
     {
+        // carry over the EOS region from the source fluid state if it provides one,
+        // so that region-dependent properties (molar masses) stay consistent
+        if constexpr (requires { fs.eosRegionIndex(); }) {
+            eosRegionIdx_ = fs.eosRegionIndex();
+        }
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
             averageMolarMass_[phaseIdx] = 0;
             sumMoleFractions_[phaseIdx] = 0;
@@ -165,7 +170,7 @@ public:
                 moleFraction_[phaseIdx][compIdx] =
                     decay<ValueType>(fs.moleFraction(phaseIdx, compIdx));
 
-                averageMolarMass_[phaseIdx] += moleFraction_[phaseIdx][compIdx]*FluidSystem::molarMass(compIdx);
+                averageMolarMass_[phaseIdx] += moleFraction_[phaseIdx][compIdx]*componentMolarMass_(compIdx, eosRegionIdx_);
                 sumMoleFractions_[phaseIdx] += moleFraction_[phaseIdx][compIdx];
             }
         }
@@ -218,15 +223,42 @@ public:
     }
 
     /*!
+     * \brief The index of the EOS region this fluid state belongs to [-]
+     *
+     * Region-dependent component properties (e.g. molar masses) are picked
+     * using this index when several EOS regions are present.
+     */
+    unsigned eosRegionIndex() const
+    { return eosRegionIdx_; }
+
+    /*!
+     * \brief Set the EOS region index of this fluid state [-]
+     *
+     * This also re-computes the average molar masses so they stay consistent
+     * with the new region.
+     */
+    void setEosRegionIndex(unsigned regionIdx)
+    {
+        if (regionIdx == eosRegionIdx_)
+            return;
+        eosRegionIdx_ = regionIdx;
+        for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
+            averageMolarMass_[phaseIdx] = 0.0;
+            for (unsigned compIdx = 0; compIdx < numComponents; ++compIdx)
+                averageMolarMass_[phaseIdx] += moleFraction_[phaseIdx][compIdx]*componentMolarMass_(compIdx, eosRegionIdx_);
+        }
+    }
+
+    /*!
     * \brief Wilson formula to calculate K
     *
     */
-    ValueType wilsonK_(unsigned compIdx) const
+    ValueType wilsonK_(unsigned compIdx, unsigned regionIdx = 0) const
     {
-        const auto& acf = FluidSystem::acentricFactor(compIdx);
-        const auto& T_crit = FluidSystem::criticalTemperature(compIdx);
+        const auto& acf = FluidSystem::acentricFactor(compIdx, regionIdx);
+        const auto& T_crit = FluidSystem::criticalTemperature(compIdx, regionIdx);
         const auto& T = asImp_().temperature(0);
-        const auto& p_crit = FluidSystem::criticalPressure(compIdx);
+        const auto& p_crit = FluidSystem::criticalPressure(compIdx, regionIdx);
         const auto& p = asImp_().pressure(0); //for now assume no capillary pressure
 
         const auto tmp = exp(5.37 * (1+acf) * (1-T_crit/T)) * (p_crit/p);
@@ -239,6 +271,17 @@ protected:
         return *static_cast<const Implementation*>(this);
     }
 
+    //! \brief Molar mass of a component, using the region-aware overload when the
+    //!        fluid system provides one and falling back to the single-region one otherwise.
+    static auto componentMolarMass_(unsigned compIdx, [[maybe_unused]] unsigned regionIdx)
+    {
+        if constexpr (requires { FluidSystem::molarMass(compIdx, regionIdx); }) {
+            return FluidSystem::molarMass(compIdx, regionIdx);
+        } else {
+            return FluidSystem::molarMass(compIdx);
+        }
+    }
+
     std::array<std::array<ValueType,numComponents>,numPhases> moleFraction_{};
     std::array<ValueType,numPhases> averageMolarMass_{};
     std::array<ValueType,numPhases> sumMoleFractions_{}; // per phase
@@ -246,6 +289,7 @@ protected:
     std::array<ValueType,numPhases> Z_{};
     std::array<ValueType,numComponents> K_{};
     ValueType L_{};
+    unsigned eosRegionIdx_ = 0;
 };
 
 /*!

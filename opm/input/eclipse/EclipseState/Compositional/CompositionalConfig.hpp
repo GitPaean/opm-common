@@ -133,6 +133,8 @@ public:
 
     std::size_t numComps() const;
 
+    std::size_t numEosRegions() const;
+
     template<class Serializer>
     void serializeOp(Serializer& serializer)
     {

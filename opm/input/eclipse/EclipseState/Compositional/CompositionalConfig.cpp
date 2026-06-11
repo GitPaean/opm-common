@@ -868,4 +868,8 @@ std::size_t CompositionalConfig::numComps() const {
     return this->num_comps;
 }
 
+std::size_t CompositionalConfig::numEosRegions() const {
+    return this->eos_types.size();
+}
+
 }

@@ -35,10 +35,10 @@ class SRKParams
 
 public:
 
-    static Scalar calcOmegaA(Scalar temperature, unsigned compIdx)
+    static Scalar calcOmegaA(Scalar temperature, unsigned compIdx, unsigned regionIdx = 0)
     {
-        Scalar Tr = temperature / FluidSystem::criticalTemperature(compIdx);
-        Scalar omega = FluidSystem::acentricFactor(compIdx);
+        Scalar Tr = temperature / FluidSystem::criticalTemperature(compIdx, regionIdx);
+        Scalar omega = FluidSystem::acentricFactor(compIdx, regionIdx);
         Scalar f_omega = 0.48 + omega * (1.574 + omega * (-0.176));
         Valgrind::CheckDefined(f_omega);
 

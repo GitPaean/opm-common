@@ -132,7 +132,7 @@ for (const auto& sample : test_methods) {
 
         // thermal PTFlash
         using Flash = Opm::PTFlash<double, FluidSystem, true>;
-        Flash::solve(fluid_state, sample, flash_tolerance, eos_type, flash_verbosity);
+        Flash::solve(fluid_state, sample, flash_tolerance, eos_type, /*eos_region=*/0, flash_verbosity);
 
         ComponentVector x, y;
         const Evaluation L = fluid_state.L();

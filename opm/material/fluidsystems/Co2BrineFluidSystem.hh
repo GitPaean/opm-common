@@ -76,7 +76,7 @@ namespace Opm {
          *
          * \copydetails Doxygen::compIdxParam
          */
-        static Scalar acentricFactor(unsigned compIdx)
+        static Scalar acentricFactor(unsigned compIdx, unsigned /*regionIdx*/ = 0)
         {
             switch (compIdx) {
             case Comp0Idx: return Comp0::acentricFactor();
@@ -89,7 +89,7 @@ namespace Opm {
          *
          * \copydetails Doxygen::compIdxParam
          */
-        static Scalar criticalTemperature(unsigned compIdx)
+        static Scalar criticalTemperature(unsigned compIdx, unsigned /*regionIdx*/ = 0)
         {
             switch (compIdx) {
                 case Comp0Idx: return Comp0::criticalTemperature();
@@ -102,7 +102,7 @@ namespace Opm {
          *
          * \copydetails Doxygen::compIdxParam
          */
-        static Scalar criticalPressure(unsigned compIdx) {
+        static Scalar criticalPressure(unsigned compIdx, unsigned /*regionIdx*/ = 0) {
             switch (compIdx) {
                 case Comp0Idx: return Comp0::criticalPressure();
                 case Comp1Idx: return Comp1::criticalPressure();
@@ -114,7 +114,7 @@ namespace Opm {
         *
         * \copydetails Doxygen::compIdxParam
         */
-        static Scalar criticalVolume(unsigned compIdx)
+        static Scalar criticalVolume(unsigned compIdx, unsigned /*regionIdx*/ = 0)
         {
             switch (compIdx) {
                 case Comp0Idx: return Comp0::criticalVolume();
@@ -124,7 +124,7 @@ namespace Opm {
         }
 
         //! \copydoc BaseFluidSystem::molarMass
-        static Scalar molarMass(unsigned compIdx)
+        static Scalar molarMass(unsigned compIdx, unsigned /*regionIdx*/ = 0)
         {
             switch (compIdx) {
                 case Comp0Idx: return Comp0::molarMass();
@@ -137,7 +137,7 @@ namespace Opm {
          * \brief Returns the interaction coefficient for two components.
          *.
          */
-        static Scalar interactionCoefficient(unsigned /*comp1Idx*/, unsigned /*comp2Idx*/)
+        static Scalar interactionCoefficient(unsigned /*comp1Idx*/, unsigned /*comp2Idx*/, unsigned /*regionIdx*/ = 0)
         {
             return 0.0;
         }

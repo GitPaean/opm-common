@@ -36,10 +36,10 @@ class PRParams
     static constexpr Scalar R = Constants<Scalar>::R;
 
 public:
-    static Scalar calcOmegaA(Scalar temperature, unsigned compIdx, bool modified)
+    static Scalar calcOmegaA(Scalar temperature, unsigned compIdx, bool modified, unsigned regionIdx = 0)
     {
-        Scalar Tr = temperature / FluidSystem::criticalTemperature(compIdx);
-        Scalar omega = FluidSystem::acentricFactor(compIdx);
+        Scalar Tr = temperature / FluidSystem::criticalTemperature(compIdx, regionIdx);
+        Scalar omega = FluidSystem::acentricFactor(compIdx, regionIdx);
         Scalar f_omega;
         if (!modified || omega <= 0.49)
             f_omega = 0.37464 + omega * (1.54226 + omega * (-0.26992));

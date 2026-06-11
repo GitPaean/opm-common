@@ -221,12 +221,12 @@ public:
     * \brief Wilson formula to calculate K
     *
     */
-    ValueType wilsonK_(unsigned compIdx) const
+    ValueType wilsonK_(unsigned compIdx, unsigned regionIdx = 0) const
     {
-        const auto& acf = FluidSystem::acentricFactor(compIdx);
-        const auto& T_crit = FluidSystem::criticalTemperature(compIdx);
+        const auto& acf = FluidSystem::acentricFactor(compIdx, regionIdx);
+        const auto& T_crit = FluidSystem::criticalTemperature(compIdx, regionIdx);
         const auto& T = asImp_().temperature(0);
-        const auto& p_crit = FluidSystem::criticalPressure(compIdx);
+        const auto& p_crit = FluidSystem::criticalPressure(compIdx, regionIdx);
         const auto& p = asImp_().pressure(0); //for now assume no capillary pressure
 
         const auto tmp = exp(5.37 * (1+acf) * (1-T_crit/T)) * (p_crit/p);

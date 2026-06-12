@@ -156,6 +156,14 @@ DATES
 CECON
  'P*' 4* 0.5 /
 /
+
+DATES
+ 12 'JAN' 2000 /
+/
+
+COMPDAT
+ 'P1' 1 1 1 3 'OPEN' /
+/
     )";
 
     const auto deck = Parser{}.parseString(input);
@@ -188,8 +196,10 @@ CECON
 
         BOOST_CHECK(econ_limit.workover == ConnectionEconLimits::EconWorkover::WELL);
         BOOST_CHECK(econ_limit.check_stopped_wells);
-        BOOST_CHECK_CLOSE(econ_limit.min_oil_rate, 1.0 / Metric::Time, 1.0e-10);
-        BOOST_CHECK_CLOSE(econ_limit.min_gas_rate, 2.0 / Metric::Time, 1.0e-10);
+        BOOST_REQUIRE(econ_limit.min_oil_rate.has_value());
+        BOOST_REQUIRE(econ_limit.min_gas_rate.has_value());
+        BOOST_CHECK_CLOSE(*econ_limit.min_oil_rate, 1.0 / Metric::Time, 1.0e-10);
+        BOOST_CHECK_CLOSE(*econ_limit.min_gas_rate, 2.0 / Metric::Time, 1.0e-10);
         BOOST_CHECK_EQUAL(econ_limit.followon_well, "P2");
     }
 
@@ -215,9 +225,22 @@ CECON
 
         BOOST_CHECK(econ_limit.workover == ConnectionEconLimits::EconWorkover::CON);
         BOOST_CHECK(!econ_limit.check_stopped_wells);
-        BOOST_CHECK(econ_limit.min_oil_rate < 0.0);
-        BOOST_CHECK(econ_limit.min_gas_rate < 0.0);
+        BOOST_CHECK(!econ_limit.min_oil_rate.has_value());
+        BOOST_CHECK(!econ_limit.min_gas_rate.has_value());
         BOOST_CHECK(econ_limit.followon_well.empty());
+    }
+
+    // Re-specifying the connections with COMPDAT must not discard the
+    // economic limits assigned by the earlier CECON keyword.
+    const auto& conns_step2 = schedule.getWell("P1", 2).getConnections();
+    BOOST_CHECK_EQUAL(conns_step2.size(), 3U);
+
+    for (const auto& conn : conns_step2) {
+        BOOST_REQUIRE(conn.hasEconLimits());
+
+        const auto& econ_limit = conn.econLimits();
+        BOOST_CHECK_CLOSE(econ_limit.max_water_cut, 0.5, 1.0e-10);
+        BOOST_CHECK(econ_limit.workover == ConnectionEconLimits::EconWorkover::CON);
     }
 }
 

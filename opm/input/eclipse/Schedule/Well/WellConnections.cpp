@@ -639,6 +639,12 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
                 const auto conSegNo = prev->segment();
                 const auto perf_range = prev->perf_range();
 
+                // Economic limits (CECON) stay in effect when the
+                // connection is re-specified by a later COMPDAT record.
+                const auto econ_limits = prev->hasEconLimits()
+                    ? std::optional { prev->econLimits() }
+                    : std::nullopt;
+
                 if (state == Connection::State::OPEN) {
                     // Report existing connections this record opens, so the
                     // caller can raise a REQUEST_OPEN_COMPLETION event.  We
@@ -664,6 +670,10 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
                 };
 
                 prev->updateSegment(conSegNo, cell.depth, css_ind, perf_range);
+
+                if (econ_limits.has_value()) {
+                    prev->setEconLimits(*econ_limits);
+                }
             }
         }
     }
@@ -914,6 +924,12 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
                 const auto conSegNo = prev->segment();
                 const auto perf_range = prev->perf_range();
 
+                // Economic limits (CECON) stay in effect when the
+                // connection is re-specified by a later COMPTRAJ record.
+                const auto econ_limits = prev->hasEconLimits()
+                    ? std::optional { prev->econLimits() }
+                    : std::nullopt;
+
                 *prev = Connection {
                     ijk[0], ijk[1], ijk[2],
                     cell.global_index, compl_num,
@@ -923,6 +939,10 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
                 };
 
                 prev->updateSegment(conSegNo, cell.depth, css_ind, *perf_range);
+
+                if (econ_limits.has_value()) {
+                    prev->setEconLimits(*econ_limits);
+                }
             }
         }
     }

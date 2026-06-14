@@ -48,6 +48,7 @@
 #include <opm/input/eclipse/Deck/Deck.hpp>
 #include <opm/input/eclipse/Parser/Parser.hpp>
 
+#include <opm/common/utility/OpmInputError.hpp>
 #include <opm/common/utility/TimeService.hpp>
 
 #include <memory>
@@ -242,6 +243,72 @@ COMPDAT
         BOOST_CHECK_CLOSE(econ_limit.max_water_cut, 0.5, 1.0e-10);
         BOOST_CHECK(econ_limit.workover == ConnectionEconLimits::EconWorkover::CON);
     }
+}
+
+BOOST_AUTO_TEST_CASE(CECON_UDAValuesRejected)
+{
+    // UDA (UDQ name) item values are accepted by the parser, but UDA
+    // evaluation is not implemented for CECON; like for WECON, building
+    // the Schedule fails with an input error.
+    const std::string input = R"(
+START
+ 10 'JAN' 2000 /
+
+RUNSPEC
+
+DIMENS
+ 5 5 5 /
+
+OIL
+GAS
+WATER
+
+GRID
+DXV
+ 5*100 /
+DYV
+ 5*100 /
+DZV
+ 5*10 /
+DEPTHZ
+ 36*2000 /
+PORO
+ 125*0.3 /
+PERMX
+ 125*100 /
+PERMY
+ 125*100 /
+PERMZ
+ 125*10 /
+
+SCHEDULE
+WELSPECS
+ 'P1' 'G' 1 1 1* 'OIL' /
+/
+COMPDAT
+ 'P1' 1 1 1 3 'OPEN' /
+/
+CECON
+ 'P1' 4* 'CUWCT1' 2* 'CON' 'NO' 'CUOPR1' /
+/
+    )";
+
+    const auto deck = Parser{}.parseString(input);
+    EclipseGrid grid(5, 5, 5);
+    const TableManager table(deck);
+    const Runspec runspec(deck);
+    const FieldPropsManager fp(deck, runspec.phases(), grid, table);
+
+    // The error must be an OpmInputError whose message names the CECON keyword,
+    // so the location-aware diagnostic from Well::handleCECON reaches the user
+    // rather than the bare "UDAValue is not numeric" internal error.
+    BOOST_CHECK_EXCEPTION(
+        Schedule(deck, grid, fp, NumericalAquifers{},
+                 runspec, std::make_shared<Python>()),
+        OpmInputError,
+        [](const OpmInputError& e) {
+            return std::string{e.what()}.find("CECON") != std::string::npos;
+        });
 }
 
 

@@ -21,6 +21,7 @@
 
 #include <opm/input/eclipse/Deck/DeckItem.hpp>
 #include <opm/input/eclipse/Deck/DeckRecord.hpp>
+#include <opm/input/eclipse/Deck/UDAValue.hpp>
 
 #include <opm/input/eclipse/Parser/ParserKeywords/C.hpp>
 
@@ -30,14 +31,22 @@
 
 namespace {
 
+// UDA (UDQ name) values are not evaluated for CECON; like for WECON, a
+// UDQ name makes the *_value_or functions throw, failing Schedule
+// construction with an input error.
+double ratioLimit(const Opm::DeckItem& item) {
+    return item.get<Opm::UDAValue>(0).SI_value_or(0.0);
+}
+
 // A defaulted MIN_OIL/MIN_GAS item, or an explicitly entered "no limit"
 // sentinel value of -1e+20 (or below), means no lower rate limit.
 std::optional<double> minRateLimit(const Opm::DeckItem& item) {
-    if (item.defaultApplied(0) || (item.get<double>(0) <= -1.0e+20)) {
+    const auto uda = item.get<Opm::UDAValue>(0);
+    if (uda.raw_value_or(-1.0e+20) <= -1.0e+20) {
         return std::nullopt;
     }
 
-    return item.getSIDouble(0);
+    return uda.getSI();
 }
 
 } // Anonymous namespace
@@ -45,12 +54,9 @@ std::optional<double> minRateLimit(const Opm::DeckItem& item) {
 namespace Opm {
 
 ConnectionEconLimits::ConnectionEconLimits(const DeckRecord& record)
-    : max_water_cut      (record.getItem<ParserKeywords::CECON::MAX_WCUT>()
-                                .getSIDouble(0))
-    , max_gas_oil_ratio  (record.getItem<ParserKeywords::CECON::MAX_GOR>()
-                                .getSIDouble(0))
-    , max_water_gas_ratio(record.getItem<ParserKeywords::CECON::MAX_WGR>()
-                                .getSIDouble(0))
+    : max_water_cut      (ratioLimit(record.getItem<ParserKeywords::CECON::MAX_WCUT>()))
+    , max_gas_oil_ratio  (ratioLimit(record.getItem<ParserKeywords::CECON::MAX_GOR>()))
+    , max_water_gas_ratio(ratioLimit(record.getItem<ParserKeywords::CECON::MAX_WGR>()))
     , workover(ConnectionEconLimits::EconWorkoverFromString(
                    record.getItem<ParserKeywords::CECON::WORKOVER_PROCEDURE>()
                        .getTrimmedString(0)))

@@ -294,6 +294,29 @@ Connection ({},{},{}) (direction '{}') for well {} ignored because
         return connection_factor;
     }
 
+    // A connection that is re-specified by a later COMPDAT/COMPTRAJ record is
+    // rebuilt from scratch (via 'prev = Connection{...}'), which would drop the
+    // per-connection economic limits (CECON).  These helpers carry the limits
+    // across the rebuild the same way the segment and perforation range are:
+    // capture before the assignment, restore after it.
+    std::optional<Opm::ConnectionEconLimits>
+    saveEconLimits(const Opm::Connection& conn)
+    {
+        if (conn.hasEconLimits()) {
+            return conn.econLimits();
+        }
+
+        return std::nullopt;
+    }
+
+    void restoreEconLimits(Opm::Connection&                                conn,
+                           const std::optional<Opm::ConnectionEconLimits>& limits)
+    {
+        if (limits.has_value()) {
+            conn.setEconLimits(*limits);
+        }
+    }
+
 } // anonymous namespace
 
 namespace Opm {
@@ -641,9 +664,7 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
 
                 // Economic limits (CECON) stay in effect when the
                 // connection is re-specified by a later COMPDAT record.
-                const auto econ_limits = prev->hasEconLimits()
-                    ? std::optional { prev->econLimits() }
-                    : std::nullopt;
+                const auto econ_limits = saveEconLimits(*prev);
 
                 if (state == Connection::State::OPEN) {
                     // Report existing connections this record opens, so the
@@ -671,9 +692,7 @@ The cell ({},{},{}) in well {} is not active and the connection will be ignored)
 
                 prev->updateSegment(conSegNo, cell.depth, css_ind, perf_range);
 
-                if (econ_limits.has_value()) {
-                    prev->setEconLimits(*econ_limits);
-                }
+                restoreEconLimits(*prev, econ_limits);
             }
         }
     }
@@ -926,9 +945,7 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
 
                 // Economic limits (CECON) stay in effect when the
                 // connection is re-specified by a later COMPTRAJ record.
-                const auto econ_limits = prev->hasEconLimits()
-                    ? std::optional { prev->econLimits() }
-                    : std::nullopt;
+                const auto econ_limits = saveEconLimits(*prev);
 
                 *prev = Connection {
                     ijk[0], ijk[1], ijk[2],
@@ -940,9 +957,7 @@ CF and Kh items for well {} must both be specified or both defaulted/negative)",
 
                 prev->updateSegment(conSegNo, cell.depth, css_ind, *perf_range);
 
-                if (econ_limits.has_value()) {
-                    prev->setEconLimits(*econ_limits);
-                }
+                restoreEconLimits(*prev, econ_limits);
             }
         }
     }

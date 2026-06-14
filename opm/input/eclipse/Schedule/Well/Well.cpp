@@ -1643,7 +1643,29 @@ bool Well::handleCECON(const DeckRecord&      record,
             && match_le(c.getK(), record, Kw::K2::itemName, value_shift);
     };
 
-    const auto connection_econ_limits = ConnectionEconLimits { record };
+    // ConnectionEconLimits throws a bare std::invalid_argument when a CECON
+    // economic-limit item holds a UDQ name (UDA evaluation is not implemented
+    // for these items).  Re-throw with the keyword location so every consumer
+    // of opm-common - not just flow's deck validator - gets an actionable
+    // error instead of an opaque internal one.
+    const auto connection_econ_limits = [this, &record, &location]
+    {
+        try {
+            return ConnectionEconLimits { record };
+        }
+        catch (const OpmInputError&) {
+            throw;
+        }
+        catch (const std::exception&) {
+            throw OpmInputError {
+                fmt::format("UDQ/UDA values are not supported for the economic-limit "
+                            "items of keyword CECON (well {}). Use numeric values for "
+                            "MAX_WCUT, MAX_GOR, MAX_WGR, MIN_OIL and MIN_GAS.",
+                            this->name()),
+                location
+            };
+        }
+    }();
 
     auto new_connections = std::make_shared<WellConnections>
         (this->connections->ordering(), this->headI, this->headJ);

@@ -296,6 +296,53 @@ BOOST_AUTO_TEST_CASE(two_opt_decrosses_path)
 }
 
 // ---------------------------------------------------------------------------
+// Test 8b: Open-path 2-opt must de-cross the *tail* of the path.
+//
+// For an open (path) TSP the 2-opt neighbourhood includes reversing a
+// segment that ends at the very last node; such a reversal changes only the
+// single leading edge because there is no trailing edge.  A 2-opt that only
+// reverses interior segments gets stuck on a strictly worse path for the
+// point set below.
+//
+// Coordinates (all same K and depth, Z-directed so the direction penalty is
+// a per-edge constant): the nearest-neighbour path from the heel is
+//   2 -> 0 -> 4 -> 1 -> 5 -> 3
+// for which interior-only 2-opt converges to {2,4,0,1,5,3} (cost ~15.85),
+// whereas the complete open-path 2-opt reaches the optimum {2,3,5,1,0,4}
+// (cost ~15.33).
+// ---------------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE(two_opt_decrosses_tail_segment)
+{
+    const auto tsp = Opm::TrackOrderingTSP { 0, 0 };
+
+    const auto connections = std::vector {
+        makeConn(5, 1, 1, 100.0),   // index 0
+        makeConn(3, 4, 1, 100.0),   // index 1
+        makeConn(2, 1, 1, 100.0),   // index 2, heel (closest to head)
+        makeConn(0, 4, 1, 100.0),   // index 3
+        makeConn(6, 0, 1, 100.0),   // index 4
+        makeConn(4, 6, 1, 100.0),   // index 5
+    };
+
+    const auto perm = tsp.order(connections);
+    BOOST_REQUIRE_EQUAL(perm.size(), connections.size());
+
+    // Heel must come first.
+    BOOST_CHECK_EQUAL(perm[0], 2u);
+
+    // The interior-only 2-opt local optimum that the previous implementation
+    // produced; the complete open-path 2-opt must do strictly better.
+    const auto interior_only = std::vector<std::size_t>{ 2, 4, 0, 1, 5, 3 };
+    BOOST_CHECK_LT(pathCostFromOrder(connections, perm),
+                   pathCostFromOrder(connections, interior_only));
+
+    // ... and in fact reach the global optimum for this point set.
+    const auto optimal = std::vector<std::size_t>{ 2, 3, 5, 1, 0, 4 };
+    BOOST_CHECK_LE(pathCostFromOrder(connections, perm),
+                   pathCostFromOrder(connections, optimal) + 1.0e-9);
+}
+
+// ---------------------------------------------------------------------------
 // Test 9: Reproducibility – same input yields same output across two calls.
 // ---------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(reproducibility)

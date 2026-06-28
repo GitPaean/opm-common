@@ -127,6 +127,30 @@ namespace {
         return static_cast<std::int_least64_t>(scaled_cost);
     }
 
+    /// Add two non-negative edge costs, saturating at the maximum
+    /// representable value instead of overflowing.
+    ///
+    /// Edge costs returned by trackEdgeCost() are non-negative and may equal
+    /// the sentinel maximum used for non-finite or overflowing edges, so the
+    /// only overflow direction that needs guarding is the positive one.
+    ///
+    /// \param[in] a First cost addend.
+    /// \param[in] b Second cost addend.
+    ///
+    /// \return \c a+b, or the maximum representable cost when that sum would
+    /// overflow.
+    std::int_least64_t
+    saturatingAddCost(const std::int_least64_t a, const std::int_least64_t b)
+    {
+        constexpr auto max_cost = std::numeric_limits<std::int_least64_t>::max();
+
+        if ((a == max_cost) || (b == max_cost) || (a > max_cost - b)) {
+            return max_cost;
+        }
+
+        return a + b;
+    }
+
     /// Build an initial greedy path by repeatedly selecting the cheapest
     /// unvisited successor.
     ///
@@ -190,7 +214,15 @@ namespace {
         }
     }
 
-    /// Improve a path with a 2-opt pass while keeping the heel fixed.
+    /// Improve a path with an open-path 2-opt pass while keeping the heel
+    /// fixed.
+    ///
+    /// Considers reversing every segment [i, k] with 1 <= i <= k <= n-1.
+    /// For an interior segment (k < n-1) both the leading edge (i-1, i) and
+    /// the trailing edge (k, k+1) change.  For a segment that runs all the
+    /// way to the final node (k == n-1) the open path has no trailing edge,
+    /// so only the leading edge changes.  Omitting this latter case leaves
+    /// crossings involving the tail of the path unresolved.
     ///
     /// \param[in] connections Connections referenced by the path.
     /// \param[in] w Cost weights controlling the edge costs.
@@ -211,27 +243,26 @@ namespace {
         while (improved) {
             improved = false;
 
-            for (auto i = std::size_t{1}; i + 2 < n; ++i) {
-                for (auto k = i + 1; k + 1 < n; ++k) {
+            for (auto i = std::size_t{1}; i + 1 < n; ++i) {
+                for (auto k = i + 1; k < n; ++k) {
                     const auto a = path[i - 1];
                     const auto b = path[i];
                     const auto c = path[k];
-                    const auto d = path[k + 1];
-
-                    const auto max_cost = std::numeric_limits<std::int_least64_t>::max();
 
                     const auto ab = trackEdgeCost(connections[a], connections[b], w);
-                    const auto cd = trackEdgeCost(connections[c], connections[d], w);
                     const auto ac = trackEdgeCost(connections[a], connections[c], w);
-                    const auto bd = trackEdgeCost(connections[b], connections[d], w);
 
-                    const auto old_cost = (ab == max_cost || cd == max_cost || ab > (max_cost - cd))
-                        ? max_cost
-                        : (ab + cd);
+                    auto old_cost = ab;
+                    auto new_cost = ac;
 
-                    const auto new_cost = (ac == max_cost || bd == max_cost || ac > (max_cost - bd))
-                        ? max_cost
-                        : (ac + bd);
+                    if (k + 1 < n) {
+                        // Interior segment: a trailing edge exists on both the
+                        // current and the reversed path.
+                        const auto d = path[k + 1];
+
+                        old_cost = saturatingAddCost(ab, trackEdgeCost(connections[c], connections[d], w));
+                        new_cost = saturatingAddCost(ac, trackEdgeCost(connections[b], connections[d], w));
+                    }
 
                     if (new_cost < old_cost) {
                         std::reverse(path.begin() + static_cast<std::ptrdiff_t>(i),
@@ -265,11 +296,11 @@ namespace {
 
         for (auto i = std::size_t{1}; i < path.size(); ++i) {
             const auto edge_cost = trackEdgeCost(connections[path[i - 1]], connections[path[i]], w);
-            if ((edge_cost == max_cost) || (total > (max_cost - edge_cost))) {
+
+            total = saturatingAddCost(total, edge_cost);
+            if (total == max_cost) {
                 return max_cost;
             }
-
-            total += edge_cost;
         }
 
         return total;

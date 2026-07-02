@@ -150,7 +150,7 @@ public:
         // TODO: Replace loop with Dune::min_value() and Dune::max_value() when water component is properly handled
         using field_type = typename Vector::field_type;
         constexpr field_type tol = 1e-12;
-        constexpr int itmax = 10000;
+        constexpr int itmax = 200;
         field_type Kmin = K[0];
         field_type Kmax = K[0];
         for (int compIdx = 1; compIdx < numComponents; ++compIdx){
@@ -159,9 +159,14 @@ public:
             else if (K[compIdx] >= Kmax)
                 Kmax = K[compIdx];
         }
-        // Lower and upper bound for solution
+        // The poles of g bounding the physical root
         auto Vmin = 1 / (1 - Kmax);
         auto Vmax = 1 / (1 - Kmin);
+        // g is strictly decreasing on (Vmin, Vmax) with exactly one root, so we
+        // can maintain a shrinking bracket [Vlo, Vhi] around the root and
+        // safeguard the Newton iteration with bisection steps.
+        auto Vlo = Vmin;
+        auto Vhi = Vmax;
         // Initial guess
         auto V = (Vmin + Vmax)/2;
         // Print initial guess and header
@@ -170,7 +175,7 @@ public:
                                      numComponents, V, Vmin, Vmax));
             OpmLog::debug(fmt::format("{:>10}{:>16}{:>16}", "Iteration", "abs(step)", "V"));
         }
-        // Newton-Raphson loop
+        // Safeguarded Newton-Raphson loop
         for (int iteration = 1; iteration < itmax; ++iteration) {
             // Calculate function and derivative values
             field_type denum = 0.0;
@@ -182,37 +187,7 @@ public:
                 r += a/b;
                 denum += z[compIdx] * (dK*dK) / (b*b);
             }
-            auto delta = r / denum;
-            V += delta;
 
-            // Check if V is within the bounds, and if not, we apply bisection method
-            if (V < Vmin || V > Vmax)
-                {
-                    // Print info
-                    if (verbosity == 3 || verbosity == 4) {
-                        OpmLog::debug(fmt::format("V = {} is not within the range [Vmin, Vmax], solve using Bisection method!", V));
-                    }
-
-                    // Run bisection
-                    // TODO: This is required for some cases. Not clear why
-                    // since the objective function should be monotone with a
-                    // single zero between the Lmin/Lmax interval defined by
-                    // K-values.
-                    decltype(Vmax) Lmin = 1.0;
-                    decltype(Vmin) Lmax = 0.0;
-                    auto L = bisection_g_(K, Lmin, Lmax, z, verbosity);
-
-                    // Print final result
-                    if (verbosity >= 1) {
-                        OpmLog::debug(fmt::format("Rachford-Rice (Bisection) converged to final solution L = {}", L));
-                    }
-                    return L;
-                }
-
-            // Print iteration info
-            if (verbosity == 3 || verbosity == 4) {
-                OpmLog::debug(fmt::format("{:>10}{:>16}{:>16}", iteration, Opm::abs(delta), V));
-            }
             // Check for convergence
             if ( Opm::abs(r) < tol ) {
                 auto L = 1 - V;
@@ -224,6 +199,44 @@ public:
                 }
                 return L;
             }
+
+            // Since g is decreasing, the sign of r tells on which side of V the root lies
+            if (r > 0)
+                Vlo = V;
+            else
+                Vhi = V;
+
+            auto delta = r / denum;
+            auto V_new = V + delta;
+
+            // Take a bisection step instead when Newton leaves the bracket
+            if (V_new <= Vlo || V_new >= Vhi) {
+                V_new = (Vlo + Vhi) / 2;
+                if (verbosity == 3 || verbosity == 4) {
+                    OpmLog::debug(fmt::format("Newton step left the bracket [{}, {}], taking bisection step to V = {}",
+                                              Vlo, Vhi, V_new));
+                }
+            }
+
+            // Print iteration info
+            if (verbosity == 3 || verbosity == 4) {
+                OpmLog::debug(fmt::format("{:>10}{:>16}{:>16}", iteration, Opm::abs(V_new - V), V_new));
+            }
+
+            // When the root is very close to one of the poles, roundoff in
+            // evaluating r puts a noise floor above tol, so the residual test
+            // can never pass. The iterates still contract to the root, so
+            // accept once V stagnates at machine precision.
+            constexpr field_type eps = std::numeric_limits<Scalar>::epsilon();
+            if (Opm::abs(V_new - V) < eps * Opm::max(Opm::abs(V_new), field_type(1.0))) {
+                auto L = 1 - V_new;
+                if (verbosity >= 1) {
+                    OpmLog::debug(fmt::format("Rachford-Rice stagnated at machine precision, "
+                                              "accepting final solution L = {}", L));
+                }
+                return L;
+            }
+            V = V_new;
         }
 
         // Throw error if Rachford-Rice fails

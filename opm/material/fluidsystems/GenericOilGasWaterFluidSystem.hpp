@@ -41,6 +41,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -104,6 +105,16 @@ namespace Opm {
             {}
         };
 
+        /*!
+         * \brief The number of components actually present in the deck.
+         *
+         * This is a runtime value smaller than or equal to the compile-time
+         * numComponents; components with index >= numActiveComponents() are
+         * inert padding components.
+         */
+        static int numActiveComponents()
+        { return num_active_components_; }
+
         static bool phaseIsActive(unsigned phaseIdx)
         {
             if constexpr (enableWater) {
@@ -140,11 +151,19 @@ namespace Opm {
         {
             // TODO: we are not considering the EOS region for now
             const auto& comp_config = eclState.compositionalConfig();
-            // how should we utilize the numComps from the CompositionalConfig?
             using FluidSystem = GenericOilGasWaterFluidSystem<Scalar, NumComp, enableWater>;
+            // The deck may contain fewer components than this fluid system was
+            // compiled for. The deck components become the "active" components
+            // and the remaining slots are padded with inert trace components,
+            // so that a single compiled instantiation can run decks with any
+            // number of components up to NumComp.
             const std::size_t num_comps = comp_config.numComps();
-            // const std::size_t num_eos_region = comp_config.
-            assert(num_comps == NumComp);
+            if (num_comps > NumComp) {
+                throw std::runtime_error(fmt::format("The deck has {} components, but this fluid system "
+                                                     "only supports up to {} components.",
+                                                     num_comps, NumComp));
+            }
+            num_active_components_ = static_cast<int>(num_comps);
             const auto& names = comp_config.compName();
             const auto& eos_props = comp_config.eosProps(0);
             FluidSystem::init();
@@ -159,6 +178,24 @@ namespace Opm {
                                                    static_cast<Scalar>(eos_props.acentric_factors[c])});
             }
 
+            // pad the inactive slots with slightly perturbed copies of the
+            // last deck component. These components only ever appear at the
+            // mole-fraction floor of the nonlinear solver (~1e-8), so any
+            // benign set of EOS properties will do; basing them on an existing
+            // component avoids introducing artificial near-critical states,
+            // and the perturbation keeps the padding components from being
+            // exact duplicates of each other, which would make the flash
+            // derivative system nearly singular.
+            for (std::size_t c = num_comps; c < NumComp; ++c) {
+                CompParm padding = component_param_.front();
+                const Scalar perturbation = 1.0 + 0.05 * (c - num_comps + 1);
+                padding.name = fmt::format("PADDING{}", c);
+                padding.molar_mass *= perturbation;
+                padding.critic_temp *= perturbation;
+                padding.critic_vol *= perturbation;
+                FluidSystem::addComponent(padding);
+            }
+
             const auto& bic = eos_props.binary_interaction_coefficient;
             if constexpr (std::is_same_v<Scalar, double>) {
                 interaction_coefficients_ = bic;
@@ -166,6 +203,10 @@ namespace Opm {
                 interaction_coefficients_.resize(bic.size());
                 std::ranges::copy(bic, interaction_coefficients_.begin());
             }
+            // the flat lower-triangular BIC layout is prefix-compatible, so
+            // interactions involving padding components can simply be
+            // zero-appended
+            interaction_coefficients_.resize(NumComp * (NumComp - 1) / 2, 0.0);
 
             const auto& lbc = comp_config.lbcCoefficients();
             std::ranges::copy(lbc, lbc_coefficients_.begin());
@@ -465,6 +506,7 @@ namespace Opm {
         static std::vector<Scalar> interaction_coefficients_;
         static std::array<Scalar, 5> lbc_coefficients_;
         static std::shared_ptr<WaterPvt> waterPvt_;
+        static int num_active_components_;
 
     public:
         static std::string printComponentParams() {
@@ -498,6 +540,9 @@ namespace Opm {
     template <class Scalar, int NumComp, bool enableWater>
     std::shared_ptr<WaterPvtMultiplexer<Scalar> >
     GenericOilGasWaterFluidSystem<Scalar, NumComp, enableWater>::waterPvt_;
+
+    template <class Scalar, int NumComp, bool enableWater>
+    int GenericOilGasWaterFluidSystem<Scalar, NumComp, enableWater>::num_active_components_ = NumComp;
 
 }
 #endif // OPM_GENERIC_OIL_GAS_WATER_FLUIDSYSTEM_HPP

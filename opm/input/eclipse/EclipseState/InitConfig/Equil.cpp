@@ -78,7 +78,12 @@ namespace Opm {
         if (compositional) {
             comp_init_type = record.getItem<ParserKeywords::EQUIL::COMP_INIT_TYPE>().get<int>(0);
             if (comp_init_type == 2 || comp_init_type == 3) {
-                set_to_saturation_pressure = record.getItem<ParserKeywords::EQUIL::COMP_NOT_SET_SAT_PRESSURE>().get<int>(0) != 1;
+                // Item 11 has no default in the keyword definition; when it is
+                // defaulted, keep the initialized value (set to saturation pressure).
+                const auto& item = record.getItem<ParserKeywords::EQUIL::COMP_NOT_SET_SAT_PRESSURE>();
+                if (!item.defaultApplied(0)) {
+                    set_to_saturation_pressure = item.get<int>(0) != 1;
+                }
             }
         }
     }

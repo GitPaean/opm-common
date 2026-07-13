@@ -16,7 +16,7 @@ int main(){
     AVX2_FLAGS_WORK)
     
   if(AVX2_FLAGS_WORK)
-    set(AVX2_FLAGS -mavx2)
+    set(AVX2_FLAGS -mavx2 -mfma)
     check_c_source_runs("
 #include <stdio.h>
 #include <immintrin.h>

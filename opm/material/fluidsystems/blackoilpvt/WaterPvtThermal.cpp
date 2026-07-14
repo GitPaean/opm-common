@@ -88,6 +88,7 @@ initFromState(const EclipseState& eclState, const Schedule& schedule)
         for (unsigned regionIdx = 0; regionIdx < regions; ++ regionIdx) {
             pvtwRefPress_[regionIdx] = pvtwTables[regionIdx].reference_pressure;
             pvtwRefB_[regionIdx] = pvtwTables[regionIdx].volume_factor;
+            pvtwCompressibility_[regionIdx] = pvtwTables[regionIdx].compressibility;
         }
     }
 

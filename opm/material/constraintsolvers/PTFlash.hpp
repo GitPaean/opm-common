@@ -150,7 +150,10 @@ public:
         // TODO: Replace loop with Dune::min_value() and Dune::max_value() when water component is properly handled
         using field_type = typename Vector::field_type;
         constexpr field_type tol = 1e-12;
-        constexpr int itmax = 10000;
+        // Newton on this scalar equation either converges in a handful of steps or
+        // not at all; the bisection below picks up the rest, so there is nothing to
+        // gain from a long iteration budget.
+        constexpr int itmax = 100;
         field_type Kmin = K[0];
         field_type Kmax = K[0];
         for (int compIdx = 1; compIdx < numComponents; ++compIdx){
@@ -213,8 +216,11 @@ public:
             if (verbosity == 3 || verbosity == 4) {
                 OpmLog::debug(fmt::format("{:>10}{:>16}{:>16}", iteration, Opm::abs(delta), V));
             }
-            // Check for convergence
-            if ( Opm::abs(r) < tol ) {
+            // Check for convergence. The residual test is absolute, so it is out of
+            // reach once the terms of r are large enough that their sum cannot be
+            // formed to 1e-12 -- accept a step that has stagnated at the resolution
+            // of V instead of iterating on rounding noise.
+            if (Opm::abs(r) < tol || Opm::abs(delta) < 1e-14 * (1 + Opm::abs(V))) {
                 auto L = 1 - V;
                 // Should we make sure the range of L is within (0, 1)?
 
@@ -226,8 +232,12 @@ public:
             }
         }
 
-        // Throw error if Rachford-Rice fails
-        OPM_THROW(std::runtime_error, " Rachford-Rice did not converge within maximum number of iterations");
+        // Newton did not get there. g is monotone with a single root in [0, 1], so
+        // bisection cannot fail; use it rather than failing the time step.
+        if (verbosity >= 1) {
+            OpmLog::debug("Rachford-Rice: Newton hit the iteration limit, falling back to bisection");
+        }
+        return bisection_g_(K, field_type{1.0}, field_type{0.0}, z, verbosity);
     }
 
     // performing the flash calculation, which is done with Scalar without touching derivatives

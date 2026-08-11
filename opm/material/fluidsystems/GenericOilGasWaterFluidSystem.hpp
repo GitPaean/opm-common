@@ -191,6 +191,21 @@ namespace Opm {
             const auto& lbc = comp_config.lbcCoefficients();
             std::ranges::copy(lbc, lbc_coefficients_.begin());
 
+            if constexpr (enableWater) {
+                // WaterPvtMultiplexer only recognises a water phase it can build an
+                // approach for; without one it throws "Not implemented: Water PVT of
+                // this deck!" from deep inside the PVT stack. Name the missing input
+                // instead. E300 defaults the water properties, flow does not.
+                const auto& tables = eclState.getTableManager();
+                if (tables.getPvtwTable().empty() && tables.getPvtwSaltTables().empty()) {
+                    throw std::runtime_error {
+                        "The deck activates the WATER phase but gives no water PVT "
+                        "description.  A compositional run with water needs PVTW (and "
+                        "DENSITY or GRAVITY for the water reference density)."
+                    };
+                }
+            }
+
             // Init. water pvt from deck
             waterPvt_->initFromState(eclState, schedule);
 

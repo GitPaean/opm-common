@@ -48,6 +48,8 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/classname.hh>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <stdexcept>
@@ -159,6 +161,21 @@ public:
             else if (K[compIdx] >= Kmax)
                 Kmax = K[compIdx];
         }
+        // A mixture whose K-values all sit on the same side of unity cannot
+        // split: g has no zero between the two poles, and the [Vmin, Vmax]
+        // window below degenerates to a point -- or even inverts, once 1 - K
+        // rounds to 1 for every component.  Left to the Newton, that state
+        // divides by 1 + V (K - 1) == 0 and iterates on NaN until the loop runs
+        // out.  Successive substitution walks into it when it drifts towards the
+        // trivial solution on a mixture that is really single-phase, so report
+        // the phase that is present and let the caller carry on.
+        if (Kmax <= 1.0) {
+            return 1.0;  // no component prefers the vapour: all liquid
+        }
+        if (Kmin >= 1.0) {
+            return 0.0;  // no component prefers the liquid: all vapour
+        }
+
         // Lower and upper bound for solution
         auto Vmin = 1 / (1 - Kmax);
         auto Vmax = 1 / (1 - Kmin);
@@ -213,8 +230,16 @@ public:
             if (verbosity == 3 || verbosity == 4) {
                 OpmLog::debug(fmt::format("{:>10}{:>16}{:>16}", iteration, Opm::abs(delta), V));
             }
-            // Check for convergence
-            if ( Opm::abs(r) < tol ) {
+            // Check for convergence.  |r| alone is not a reachable criterion when
+            // the root lies close to a pole of the objective, which is where a
+            // near-single-phase mixture puts it: there b = 1 + V (K - 1) is small
+            // for the extreme component, the individual terms of the sum are
+            // large, and cancellation leaves the roundoff floor of r above tol.
+            // The Newton step is the honest measure of what is left to do, so
+            // stop once V can no longer move.
+            if (Opm::abs(r) < tol ||
+                Opm::abs(delta) <= 1e-14 * std::max(Opm::abs(V), field_type{1.0}))
+            {
                 auto L = 1 - V;
                 // Should we make sure the range of L is within (0, 1)?
 
@@ -227,7 +252,10 @@ public:
         }
 
         // Throw error if Rachford-Rice fails
-        OPM_THROW(std::runtime_error, " Rachford-Rice did not converge within maximum number of iterations");
+        OPM_THROW(std::runtime_error,
+                  fmt::format(" Rachford-Rice did not converge within maximum number of iterations "
+                              "(V = {}, [Vmin, Vmax] = [{}, {}], K = [{}], z = [{}])",
+                              V, Vmin, Vmax, fmt::join(K, " "), fmt::join(z, " ")));
     }
 
     // performing the flash calculation, which is done with Scalar without touching derivatives
@@ -1188,8 +1216,24 @@ protected:
             //  If convergence is not met, K is updated in a successive substitution manner
             else {
                 // Update K
+                bool finite_update = true;
                 for (int compIdx=0; compIdx<numComponents; ++compIdx){
                     K[compIdx] *= newFugRatio[compIdx];
+                    finite_update = finite_update && std::isfinite(getValue(K[compIdx]));
+                }
+
+                // On a mixture that is really single-phase the substitution walks
+                // off towards the trivial solution and the K-values overflow.
+                // Stop here rather than handing an infinite K to Rachford-Rice,
+                // which can only answer NaN and would spin out its iteration
+                // budget doing so; the caller treats this like any other
+                // non-convergence.
+                if (!finite_update) {
+                    if (verbosity >= 1) {
+                        OpmLog::debug(fmt::format("Successive substitution diverged at iteration {}: "
+                                                  "K = [{}]", i, fmt::join(K, " ")));
+                    }
+                    break;
                 }
 
                 // Solve Rachford-Rice to get L from updated K

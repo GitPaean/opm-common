@@ -560,7 +560,13 @@ protected:
             //todo: make sure that no mole fraction is smaller than 1e-8 ?
             //todo: take care of water!
         }
-        OPM_THROW(std::runtime_error, " Stability test did not converge");
+        OPM_THROW(std::runtime_error,
+                  fmt::format(" Stability test did not converge ({} trial phase: "
+                              "z = [{}], P = {} Pa, T = {} K, K = [{}])",
+                              isGas ? "vapour" : "liquid", fmt::join(z, " "),
+                              Opm::getValue(fluid_state.pressure(oilPhaseIdx)),
+                              Opm::getValue(fluid_state.temperature(0)),
+                              fmt::join(K, " ")));
     }//end checkStability
 
     // TODO: basically FlashFluidState and ComponentVector are both depending on the one Scalar type
@@ -647,7 +653,12 @@ protected:
 
         if (!converged) {
             OPM_THROW(std::runtime_error,
-                      "flash calculation did not get converged with " + flash_2p_method);
+                      fmt::format("flash calculation did not get converged with {} "
+                                  "(z = [{}], P = {} Pa, T = {} K, K = [{}], L = {})",
+                                  flash_2p_method, fmt::join(z_scalar, " "),
+                                  Opm::getValue(fluid_state_scalar.pressure(oilPhaseIdx)),
+                                  Opm::getValue(fluid_state_scalar.temperature(0)),
+                                  fmt::join(K_scalar, " "), Opm::getValue(L_scalar)));
         }
     }
 
@@ -789,8 +800,19 @@ protected:
             OpmLog::debug(fmt::to_string(buf));
         }
         if (!converged) {
-            OPM_THROW(std::runtime_error,
-                      fmt::format(" Newton composition update did not converge within maxIterations {}", max_iter));
+            // Recovered by the ssi+newton fallback in flash_2ph, so do not
+            // log: an ERROR line per stalled cell reads as a failing run and
+            // costs formatting plus log I/O in the assembly hot loop.  K and
+            // L still hold the values Newton started from; the writeback
+            // below only runs on convergence.
+            OPM_THROW_NOLOG(std::runtime_error,
+                            fmt::format(" Newton composition update did not converge within maxIterations {} "
+                                        "(z = [{}], P = {} Pa, T = {} K, entry K = [{}], entry L = {}, "
+                                        "last residual = {})",
+                                        max_iter, fmt::join(z, " "),
+                                        Opm::getValue(fluid_state.pressure(oilPhaseIdx)),
+                                        Opm::getValue(fluid_state.temperature(0)),
+                                        fmt::join(K, " "), Opm::getValue(L), res.two_norm()));
         }
 
         // fluid_state is scalar, we need to update all the values for fluid_state here
@@ -1218,7 +1240,13 @@ protected:
         }
         // did not get converged. check whether we will do more newton later afterward
         {
-           const std::string msg = fmt::format("Successive substitution composition update did not converge within maxIterations {}.", maxIterations);
+           const std::string msg =
+               fmt::format("Successive substitution composition update did not converge within maxIterations {} "
+                           "(z = [{}], P = {} Pa, T = {} K, K = [{}], L = {})",
+                           maxIterations, fmt::join(z, " "),
+                           Opm::getValue(fluid_state.pressure(oilPhaseIdx)),
+                           Opm::getValue(fluid_state.temperature(0)),
+                           fmt::join(K, " "), Opm::getValue(L));
            if (!newton_afterwards) {
                OPM_THROW(std::runtime_error, msg);
            } else if (verbosity > 0) {

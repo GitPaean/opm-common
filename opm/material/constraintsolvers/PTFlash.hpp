@@ -638,7 +638,10 @@ protected:
                 try {
                     converged = newtonComposition_(K_scalar, L_scalar, fluid_state_scalar, z_scalar, flash_tolerance, eos_type, verbosity);
                 }
-                catch (const std::runtime_error& e) {
+                catch (const std::exception& e) {
+                    // std::exception, not just runtime_error: a singular
+                    // Jacobian surfaces as a Dune::FMatrixError, which must
+                    // take the same fallback instead of failing the solve.
                     if (verbosity >= 1) {
                         OpmLog::debug(fmt::format("Newton did not finish the composition update ({}); "
                                                   "switching back to successive substitution.", e.what()));
@@ -845,6 +848,15 @@ protected:
             y[compIdx] = fluid_state.moleFraction(gasPhaseIdx, compIdx);
         }
         const Eval& l = fluid_state.L();
+        // Fugacities are of the order of the pressure, so raw differences
+        // measured against an absolute tolerance make convergence at
+        // reservoir pressure a race with round-off: their evaluation noise
+        // floor of a few ulps of x*p can exceed the tolerance outright.
+        // Scale those rows by the pressure to make them dimensionless like
+        // the mole-balance rows.  A scalar row scaling leaves the Newton
+        // iterates and the derivative reconstruction unchanged; only the
+        // convergence measure becomes pressure-independent.
+        const double pref = Opm::getValue(fluid_state.pressure(oilPhaseIdx));
         // TODO: clearing zero whether necessary?
         jac = 0.;
         res = 0.;
@@ -859,9 +871,9 @@ protected:
             }
 
             {
-                // f_liquid - f_vapor = 0
+                // (f_liquid - f_vapor) / p = 0
                 auto local_res = (fluid_state.fugacity(oilPhaseIdx, compIdx) -
-                                  fluid_state.fugacity(gasPhaseIdx, compIdx));
+                                  fluid_state.fugacity(gasPhaseIdx, compIdx)) / pref;
                 res[compIdx + numComponents] = Opm::getValue(local_res);
                 for (unsigned i = 0; i < num_primary; ++i) {
                     jac[compIdx + numComponents][i] = local_res.derivative(i);

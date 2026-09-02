@@ -291,8 +291,16 @@ namespace {
     */
     std::tm utc_civil_time(const std::time_t t)
     {
-        const auto days = (t >= 0 ? t : t - 86399) / 86400;   // floor division
-        auto secs = t - days * 86400;
+        // Floor division, without the overflow that t - 86399 has at the
+        // bottom of the range: take the quotient and remainder first, then
+        // carry a negative remainder into the day. Neither operation can
+        // overflow for any representable time_t.
+        auto days = t / 86400;
+        auto secs = t % 86400;
+        if (secs < 0) {
+            secs += 86400;
+            --days;
+        }
 
         // Qualified: civil_from_days lives in the anonymous namespace inside
         // Opm::TimeService, beside the days_from_civil it inverts; this helper

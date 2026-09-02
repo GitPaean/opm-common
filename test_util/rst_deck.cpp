@@ -45,6 +45,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <cctype>
 #include <unordered_set>
 #include <utility>
 
@@ -250,6 +251,15 @@ bool same_mount(const fs::path& p1, const fs::path& p2)
     auto abs1 = fs::absolute(p1);
     auto abs2 = fs::absolute(p2);
 
+    // On Windows the drive is the mount, and the comparison below misses
+    // that: it steps past the root name ("C:") to the root directory, which
+    // is the same for every absolute path, so C: and D: would compare equal
+    // and fs::relative() would then find no path between them. root_name()
+    // is empty on POSIX, so this changes nothing there.
+    if (abs1.root_name() != abs2.root_name()) {
+        return false;
+    }
+
     auto iter1 = abs1.begin(); ++iter1;
     auto iter2 = abs2.begin(); ++iter2;
 
@@ -266,6 +276,16 @@ void update_restart_path(Options& opt,
     std::string base;
     std::optional<std::size_t> rst_step;
     auto sep_pos = restart_arg.rfind(':');
+
+    // A Windows drive letter carries a colon of its own, so an absolute
+    // restart file given without an explicit step - "C:\case\HISTORY.X0067",
+    // the documented existing-file form - would otherwise be split at the
+    // drive separator, leaving base_arg "C" and the remainder to be handed
+    // to stoi(). Only a colon in that position can be a drive letter.
+    if (sep_pos == 1 && restart_arg.size() > 2
+        && std::isalpha(static_cast<unsigned char>(restart_arg[0]))) {
+        sep_pos = std::string::npos;
+    }
 
     auto base_arg = restart_arg.substr(0, sep_pos);
     if (fs::exists(base_arg)) {
@@ -290,7 +310,12 @@ void update_restart_path(Options& opt,
             }
 
             if (same_mount(path, target_path)) {
-                base = fs::relative(path, target_path).replace_extension().generic_string();
+                // Empty when no relative path exists between the two - then
+                // the absolute path is the only thing that names the file.
+                const auto rel = fs::relative(path, target_path);
+                base = rel.empty()
+                    ? fs::canonical(fs::absolute(path)).replace_extension().generic_string()
+                    : fs::path(rel).replace_extension().generic_string();
             }
             else {
                 base = fs::canonical(fs::absolute(path)).replace_extension().generic_string();

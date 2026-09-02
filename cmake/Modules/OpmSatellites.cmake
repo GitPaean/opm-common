@@ -343,7 +343,14 @@ function(opm_add_test TestName)
     if(NOT TARGET test-suite)
       add_custom_target(test-suite)
     endif()
-    add_dependencies(test-suite ${CURTEST_EXE_TARGET})
+    # A run-only test (EXE_TARGET without SOURCES) reuses a target built
+    # elsewhere, which need not exist in every configuration: the example
+    # targets opm-simulators' modelTests.cmake reuses are absent under
+    # -DBUILD_EXAMPLES=OFF, and add_dependencies() on a missing target is a
+    # hard configure error.
+    if(TARGET ${CURTEST_EXE_TARGET})
+      add_dependencies(test-suite ${CURTEST_EXE_TARGET})
+    endif()
   endif()
 endfunction()
 

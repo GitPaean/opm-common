@@ -277,15 +277,21 @@ void update_restart_path(Options& opt,
     std::optional<std::size_t> rst_step;
     auto sep_pos = restart_arg.rfind(':');
 
+#ifdef _WIN32
     // A Windows drive letter carries a colon of its own, so an absolute
     // restart file given without an explicit step - "C:\case\HISTORY.X0067",
     // the documented existing-file form - would otherwise be split at the
     // drive separator, leaving base_arg "C" and the remainder to be handed
     // to stoi(). Only a colon in that position can be a drive letter.
+    //
+    // Windows-only on purpose: a drive letter does not exist elsewhere, and
+    // a one-character base name is legal on POSIX, so applying this there
+    // would reject "CASE.DATA H:60".
     if (sep_pos == 1 && restart_arg.size() > 2
         && std::isalpha(static_cast<unsigned char>(restart_arg[0]))) {
         sep_pos = std::string::npos;
     }
+#endif
 
     auto base_arg = restart_arg.substr(0, sep_pos);
     if (fs::exists(base_arg)) {

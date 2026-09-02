@@ -286,8 +286,9 @@ namespace {
       the days_from_civil() this file already uses in the other direction, so
       use it unconditionally: every platform then exercises the same code.
 
-      tm_wday and tm_yday are left zero. Only the year/month/day and the time
-      of day are read from the result here; fill them in if that changes.
+      Every field std::gmtime() sets is set here too, so this is a drop-in
+      replacement: DoubHEAD's day-of-year calculation reads tm_yday.
+      tm_isdst is 0, as it is for UTC.
     */
     std::tm utc_civil_time(const std::time_t t)
     {
@@ -315,9 +316,26 @@ namespace {
         tm.tm_hour = static_cast<int>(secs / 3600); secs %= 3600;
         tm.tm_min  = static_cast<int>(secs / 60);
         tm.tm_sec  = static_cast<int>(secs % 60);
+
+        // Day of year, counted from 0 as std::tm wants it.
+        const auto jan1 = Opm::TimeService::days_from_civil(
+            static_cast<long long>(y), 1u, 1u);
+        tm.tm_yday = static_cast<int>(
+            static_cast<long long>(days) - static_cast<long long>(jan1));
+
+        // 1970-01-01 was a Thursday, so day 0 is weekday 4. The double
+        // modulo keeps the result in [0, 6] for days before the epoch.
+        tm.tm_wday = static_cast<int>(((days + 4) % 7 + 7) % 7);
+
+        tm.tm_isdst = 0;   // UTC never has one
         return tm;
     }
 
+}
+
+std::tm Opm::TimeService::portable_gmtime(const std::time_t t)
+{
+    return utc_civil_time(t);
 }
 
 Opm::TimeStampUTC::TimeStampUTC(const std::time_t tp)

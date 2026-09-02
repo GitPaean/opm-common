@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #if defined(_WIN32)
+#include <cstdint>   // intptr_t
 #include <cstring>
 #include <process.h>
 #include <string>

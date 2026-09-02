@@ -47,6 +47,15 @@ namespace Opm {
     std::time_t mkdatetime(int in_year, int in_month, int in_day, int hour, int minute, int second);
     std::time_t mkdate(int in_year, int in_month, int in_day);
     std::time_t portable_timegm(const std::tm* t);
+
+    /// Break a time_t into UTC civil time.
+    ///
+    /// The inverse of portable_timegm(), and a replacement for std::gmtime():
+    /// that returns nullptr for time points its C runtime cannot represent --
+    /// MSVC's refuses everything before 1970 and after year 3000, both of
+    /// which simulation schedules legitimately reach -- and hands back a
+    /// pointer to a static buffer that concurrent callers overwrite.
+    std::tm portable_gmtime(std::time_t t);
     std::time_t timeFromEclipse(const DeckRecord &dateRecord);
     }
 

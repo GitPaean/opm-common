@@ -67,11 +67,8 @@ class Common
     // autodiff types used by the material tests) Scalar arithmetic is not a
     // constant expression under MSVC, so compute in double and cast.
     static constexpr bool computeInScalar_ =
-        std::is_floating_point_v<Scalar>
-#if HAVE_QUAD
-        || std::is_same_v<Scalar, quad>
-#endif
-        ;
+        std::is_floating_point_v<Scalar>;   // quad.hpp specialises this
+                                           // trait to true for quad
     using ComputeT = std::conditional_t<computeInScalar_, Scalar, double>;
 
 public:

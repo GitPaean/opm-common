@@ -38,6 +38,7 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/R.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/S.hpp>
 
+#include <cctype>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
@@ -45,7 +46,6 @@
 #include <iostream>
 #include <optional>
 #include <string>
-#include <cctype>
 #include <unordered_set>
 #include <utility>
 
@@ -316,12 +316,7 @@ void update_restart_path(Options& opt,
             }
 
             if (same_mount(path, target_path)) {
-                // Empty when no relative path exists between the two - then
-                // the absolute path is the only thing that names the file.
-                const auto rel = fs::relative(path, target_path);
-                base = rel.empty()
-                    ? fs::canonical(fs::absolute(path)).replace_extension().generic_string()
-                    : fs::path(rel).replace_extension().generic_string();
+                base = fs::relative(path, target_path).replace_extension().generic_string();
             }
             else {
                 base = fs::canonical(fs::absolute(path)).replace_extension().generic_string();

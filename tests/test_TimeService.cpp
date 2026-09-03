@@ -25,6 +25,7 @@
 #include <opm/common/utility/TimeService.hpp>
 
 #include <ctime>
+#include <limits>
 
 // TimeStampUTC(std::time_t) breaks a time_t into civil time itself rather than
 // calling std::gmtime, so these check the range std::gmtime would not have
@@ -100,4 +101,52 @@ BOOST_AUTO_TEST_CASE(RoundTripThroughTimeT)
         BOOST_CHECK_EQUAL(back.minutes(), 37);
         BOOST_CHECK_EQUAL(back.seconds(),  7);
     }
+}
+
+// portable_gmtime() is the std::gmtime() replacement on the Eclipse output
+// path, and that path reads more than the date: DoubHEAD takes tm_yday, and
+// a drop-in replacement has to agree on tm_wday too. Dates with a known
+// weekday and day of year, on both sides of the epoch and beyond year 3000.
+
+BOOST_AUTO_TEST_CASE(PortableGmtime_DayOfYearAndWeekday)
+{
+    struct Case { std::time_t t; int year; int mon; int mday; int yday; int wday; };
+    for (const auto& c : { Case{               0, 1970,  1,  1,   0, 4 },   // Thursday
+                           Case{              -1, 1969, 12, 31, 364, 3 },   // Wednesday
+                           Case{     951'782'400, 2000,  2, 29,  59, 2 },   // Tuesday
+                           Case{     978'220'800, 2000, 12, 31, 365, 0 },   // Sunday, a leap year's last day
+                           Case{  32'503'680'000, 3000,  1,  1,   0, 3 } }) // Wednesday
+    {
+        const auto tm = Opm::TimeService::portable_gmtime(c.t);
+
+        BOOST_CHECK_EQUAL(tm.tm_year + 1900, c.year);
+        BOOST_CHECK_EQUAL(tm.tm_mon + 1,     c.mon);
+        BOOST_CHECK_EQUAL(tm.tm_mday,        c.mday);
+        BOOST_CHECK_EQUAL(tm.tm_yday,        c.yday);
+        BOOST_CHECK_EQUAL(tm.tm_wday,        c.wday);
+        BOOST_CHECK_EQUAL(tm.tm_isdst,       0);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(PortableGmtime_MinimumTimeT)
+{
+    // The bottom of the range. The floor division used to subtract 86399
+    // from t before dividing, which overflows exactly here; the conversion
+    // has to stay defined all the way down. The year is far outside int, so
+    // only what does not depend on it is checked: the time of day is in
+    // range and the same one day later, which is also the next weekday.
+    constexpr auto t = std::numeric_limits<std::time_t>::min();
+    const auto a = Opm::TimeService::portable_gmtime(t);
+    const auto b = Opm::TimeService::portable_gmtime(t + 86400);
+
+    BOOST_CHECK(0 <= a.tm_hour && a.tm_hour < 24);
+    BOOST_CHECK(0 <= a.tm_min  && a.tm_min  < 60);
+    BOOST_CHECK(0 <= a.tm_sec  && a.tm_sec  < 60);
+    BOOST_CHECK(0 <= a.tm_wday && a.tm_wday < 7);
+    BOOST_CHECK(0 <= a.tm_yday && a.tm_yday < 366);
+
+    BOOST_CHECK_EQUAL(a.tm_hour, b.tm_hour);
+    BOOST_CHECK_EQUAL(a.tm_min,  b.tm_min);
+    BOOST_CHECK_EQUAL(a.tm_sec,  b.tm_sec);
+    BOOST_CHECK_EQUAL((a.tm_wday + 1) % 7, b.tm_wday);
 }

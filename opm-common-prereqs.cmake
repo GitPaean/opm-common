@@ -22,4 +22,11 @@ if(TARGET opmcommon)
   if(opm-common_LIBS MATCHES OpenMP::OpenMP)
     find_package(OpenMP REQUIRED)
   endif()
+
+  # Present when UseMPI.cmake linked MPI onto the target: the imported target
+  # is in the exported interface, so a consumer that has not looked for MPI
+  # would fail at generation. Its C component, as OpenMP::OpenMP_C above.
+  if(opm-common_LIBS MATCHES "MPI::MPI_C")
+    find_package(MPI REQUIRED COMPONENTS C)
+  endif()
 endif()

@@ -13,6 +13,20 @@ function(mpi_checks)
     message(FATAL_ERROR "Function needs a TARGET parameter")
   endif()
   get_target_property(TARGET_LINKS ${PARAM_TARGET} INTERFACE_LINK_LIBRARIES)
+
+  # MPI normally arrives transitively, as the library path the DUNE modules
+  # put on the target. Where it does not - their installed targets on Windows
+  # export none - link the imported target here, so HAVE_MPI reflects the MPI
+  # that was found. A no-op wherever it did arrive.
+  if(NOT (TARGET_LINKS MATCHES "libmpi${CMAKE_SHARED_LIBRARY_SUFFIX}" OR
+          TARGET_LINKS MATCHES "MPI::MPI_C"))
+    find_package(MPI COMPONENTS C)
+    if(MPI_C_FOUND)
+      target_link_libraries(${PARAM_TARGET} PUBLIC MPI::MPI_C)
+      get_target_property(TARGET_LINKS ${PARAM_TARGET} INTERFACE_LINK_LIBRARIES)
+    endif()
+  endif()
+
   if(TARGET_LINKS MATCHES "libmpi${CMAKE_SHARED_LIBRARY_SUFFIX}" OR
      TARGET_LINKS MATCHES MPI::MPI_C)
     # check for MPI version 2

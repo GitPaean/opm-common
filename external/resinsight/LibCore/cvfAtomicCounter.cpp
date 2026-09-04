@@ -24,16 +24,22 @@
 
 #include "cvfAtomicCounter.h"
 
+// At file scope: <windows.h> declares templates that name types in the
+// global namespace, so including it inside a namespace (where it used to
+// sit, below) declares something else. MSVC accepts that, clang does not.
+#ifdef WIN32
+#pragma warning (push)
+#pragma warning (disable: 4668)
+#include <windows.h>
+#pragma warning (pop)
+#endif
+
 namespace external {
 // Some older GCC version do not support atomics, we have seen this for RHEL5
 #if defined(CVF_ATOMIC_COUNTER_CLASS_EXISTS)
 namespace cvf {
 
 #ifdef WIN32
-#pragma warning (push)
-#pragma warning (disable: 4668)
-#include <windows.h>
-#pragma warning (pop)
 
 
 AtomicCounter::AtomicCounter(int initialValue)

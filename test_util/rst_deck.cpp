@@ -38,6 +38,7 @@
 #include <opm/input/eclipse/Parser/ParserKeywords/R.hpp>
 #include <opm/input/eclipse/Parser/ParserKeywords/S.hpp>
 
+#include <cctype>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
@@ -250,13 +251,28 @@ bool same_mount(const fs::path& p1, const fs::path& p2)
     auto abs1 = fs::absolute(p1);
     auto abs2 = fs::absolute(p2);
 
-    auto iter1 = abs1.begin(); ++iter1;
-    auto iter2 = abs2.begin(); ++iter2;
+    // Two roots are two mounts: C: and D:, or two UNC servers. root_name()
+    // is empty on POSIX, so this decides nothing there.
+    if (abs1.root_name() != abs2.root_name()) {
+        return false;
+    }
 
-    auto mnt1 = *iter1;
-    auto mnt2 = *iter2;
+    // Then the first component below the root: the top-level directory on
+    // POSIX, as before; on Windows the top-level directory of the drive, or
+    // the share of a UNC path - whose root name is only the server, so two
+    // shares on one server would otherwise compare as one mount, and
+    // fs::relative() would then climb out of a share. The root name and root
+    // directory are skipped rather than counted, so the same element is
+    // compared whichever of them a path has.
+    const auto first_below_root = [](const fs::path& p)
+    {
+        auto it = p.begin();
+        if (p.has_root_name()) { ++it; }
+        if (p.has_root_directory()) { ++it; }
+        return (it != p.end()) ? *it : fs::path{};
+    };
 
-    return (mnt1 == mnt2);
+    return first_below_root(abs1) == first_below_root(abs2);
 }
 
 void update_restart_path(Options& opt,
@@ -267,18 +283,46 @@ void update_restart_path(Options& opt,
     std::optional<std::size_t> rst_step;
     auto sep_pos = restart_arg.rfind(':');
 
+#ifdef _WIN32
+    // A Windows drive letter carries a colon of its own, so an absolute
+    // restart file given without an explicit step - "C:\case\HISTORY.X0067",
+    // the documented existing-file form - would otherwise be split at the
+    // drive separator, leaving base_arg "C" and the remainder to be handed
+    // to stoi(). Only a colon in that position can be a drive letter.
+    //
+    // Windows-only on purpose: a drive letter does not exist elsewhere, and
+    // a one-character base name is legal on POSIX, so applying this there
+    // would reject "CASE.DATA H:60".
+    //
+    // And only when a separator follows the colon, which a path has and a
+    // step number has not - "H:60" is still the documented BASE:NUMBER form
+    // with a one-letter base, not a drive - or when the whole argument
+    // names an existing file, which is what a drive-relative
+    // "C:HISTORY.X0067" is ("H:60" would have to be a file named 60 in
+    // the current directory of drive H to match).
+    if (sep_pos == 1 && restart_arg.size() > 2
+        && std::isalpha(static_cast<unsigned char>(restart_arg[0]))
+        && (restart_arg[2] == '\\' || restart_arg[2] == '/'
+            || fs::exists(restart_arg))) {
+        sep_pos = std::string::npos;
+    }
+#endif
+
     auto base_arg = restart_arg.substr(0, sep_pos);
     if (fs::exists(base_arg)) {
         auto unif = io_config.getUNIFIN();
         auto fmt = io_config.getFMTIN();
         auto path = fs::path(base_arg);
-        auto extension = path.extension();
+        auto extension = path.extension().string();
 
         rst_step = verify_extension(extension, unif, fmt);
 
+        // Use generic_string() (forward slashes) for all three branches below:
+        // 'base' is written into the RESTART keyword of the generated deck, so
+        // it must stay portable rather than use native '\' separators on Windows.
         if (path.is_absolute()) {
             path.replace_extension();
-            base = path;
+            base = path.generic_string();
         }
         else {
             auto target_path = fs::current_path();
@@ -287,10 +331,10 @@ void update_restart_path(Options& opt,
             }
 
             if (same_mount(path, target_path)) {
-                base = fs::relative(path, target_path).replace_extension();
+                base = fs::relative(path, target_path).replace_extension().generic_string();
             }
             else {
-                base = fs::canonical(fs::absolute(path)).replace_extension();
+                base = fs::canonical(fs::absolute(path)).replace_extension().generic_string();
             }
         }
     }
@@ -347,12 +391,12 @@ std::pair<Options, std::string> load_options(int argc, char **argv)
 
         if (fs::is_directory(target_arg)) {
             opt.target_path = target_arg;
-            opt.target_fname = fs::path(opt.input_deck).filename();
+            opt.target_fname = fs::path(opt.input_deck).filename().string();
         }
         else {
             auto target_path = fs::path(fs::absolute(target_arg));
-            opt.target_path = fs::absolute(target_path.parent_path());
-            opt.target_fname = target_path.filename();
+            opt.target_path = fs::absolute(target_path.parent_path()).string();
+            opt.target_fname = target_path.filename().string();
         }
 
         if (opt.mode == Opm::FileDeck::OutputMode::COPY) {
@@ -419,7 +463,7 @@ int main(int argc, char** argv)
     update_schedule(options, file_deck);
 
     if (!options.target_path.has_value()) {
-        file_deck.dump_stdout(fs::current_path(), options.mode);
+        file_deck.dump_stdout(fs::current_path().string(), options.mode);
     }
     else {
         file_deck.dump( options.target_path.value(), options.target_fname.value(), options.mode);

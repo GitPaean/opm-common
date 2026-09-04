@@ -664,51 +664,69 @@ namespace {
         return static_cast<int>(us.count());
     }
 
-    std::tm startTimeToGmtime(const SummarySpecification::StartTime start)
+    /// Calendar fields of a start time, read as UTC.
+    struct CivilTime
     {
-        const auto timepoint = std::chrono::system_clock::to_time_t(start);
-        return *std::gmtime(&timepoint);
+        int year{}, month{}, day{}, hour{}, minute{}, second{};
+    };
+
+    CivilTime startTimeToCivilTime(const SummarySpecification::StartTime start)
+    {
+        namespace ch = std::chrono;
+
+        const auto days = ch::floor<ch::days>(start);
+        const auto ymd  = ch::year_month_day{days};
+        const auto hms  = ch::hh_mm_ss{ch::floor<ch::seconds>(start - days)};
+
+        return {
+            static_cast<int>(ymd.year()),
+            static_cast<int>(static_cast<unsigned>(ymd.month())),
+            static_cast<int>(static_cast<unsigned>(ymd.day())),
+            static_cast<int>(hms.hours()  .count()),
+            static_cast<int>(hms.minutes().count()),
+            static_cast<int>(hms.seconds().count()),
+        };
     }
 
     std::vector<int>
     makeStartDate(const SummarySpecification::StartTime start)
     {
-        const auto tm = startTimeToGmtime(start);
+        const auto t = startTimeToCivilTime(start);
 
         // { Day, Month, Year, Hour, Minute, Seconds }
 
         return {
-            // 1..31    1..12
-            tm.tm_mday, tm.tm_mon + 1,
+            // 1..31  1..12
+            t.day,    t.month,
 
-            tm.tm_year + 1900,
+            t.year,
 
-            // 0..23    0..59
-            tm.tm_hour, tm.tm_min,
+            // 0..23  0..59
+            t.hour,   t.minute,
 
             // 0..59,999,999
-            microSeconds(std::min(tm.tm_sec, 59))
+            microSeconds(std::min(t.second, 59))
         };
     }
 
     std::vector<int>
     makeRuntimeiDate(const SummarySpecification::StartTime start)
     {
-        const auto tm = startTimeToGmtime(start);
+        const auto t = startTimeToCivilTime(start);
 
         // { Year, Month, Day, Hour, Minute, Seconds }
 
         return {
-            tm.tm_year + 1900,
+            t.year,
 
-            // 1..12    1..32
-            tm.tm_mon + 1, tm.tm_mday,
+            // 1..12   1..32
+            t.month,   t.day,
 
-            // 0..23    0..59
-            tm.tm_hour, tm.tm_min,
+            // 0..23   0..59
+            t.hour,    t.minute,
 
             // 0..59
-            std::min(tm.tm_sec, 59)
+            std::min(t.second, 59)
         };
     }
 

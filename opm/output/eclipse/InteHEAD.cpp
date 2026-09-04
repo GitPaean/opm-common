@@ -887,21 +887,21 @@ Opm::RestartIO::getSimulationTimePoint(const std::time_t start,
                                        const double      elapsed)
 {
     const auto now = TimeService::advance(start, elapsed);
-    const auto tp  = *std::gmtime(&now);
+    const auto tp  = TimeStampUTC { now };
 
     auto sec  = 0.0;            // Not really used here.
     auto usec = std::floor(1.0e6 * std::modf(elapsed, &sec));
 
     return {
         // Y-m-d
-        tp.tm_year + 1900,
-        tp.tm_mon  +    1,
-        tp.tm_mday ,
+        tp.year(),
+        tp.month(),
+        tp.day(),
 
         // H:M:S
-        tp.tm_hour ,
-        tp.tm_min  ,
-        std::min(tp.tm_sec, 59), // Ignore leap seconds
+        tp.hour(),
+        tp.minutes(),
+        std::min(tp.seconds(), 59), // Ignore leap seconds
 
         // Fractional seconds in microsecond resolution.
         static_cast<int>(usec),

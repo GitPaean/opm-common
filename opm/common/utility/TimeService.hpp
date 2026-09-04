@@ -38,15 +38,21 @@ namespace Opm {
     time_point now();
 
     std::time_t advance(const std::time_t tp, const double sec);
-    std::time_t makeUTCTime(std::tm timePoint);
     const std::unordered_map<std::string , int>& eclipseMonthIndices();
     const std::unordered_map<int, std::string>& eclipseMonthNames();
     int eclipseMonth(const std::string& name);
     bool valid_month(const std::string& month_name);
 
+    /// Seconds since the epoch for a civil date and time of day, read as
+    /// UTC, rejecting a date that does not exist.
+    ///
+    /// The month is carried into the year and a day outside the month counts
+    /// on from its first, so 33 January is 2 February; the date that comes
+    /// back is then compared with the one asked for, and a mismatch throws
+    /// std::invalid_argument. asTimeT() does the same conversion without the
+    /// rejection, for the callers that want the carry.
     std::time_t mkdatetime(int in_year, int in_month, int in_day, int hour, int minute, int second);
     std::time_t mkdate(int in_year, int in_month, int in_day);
-    std::time_t portable_timegm(const std::tm* t);
     std::time_t timeFromEclipse(const DeckRecord &dateRecord);
     }
 

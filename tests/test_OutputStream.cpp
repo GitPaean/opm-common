@@ -1740,7 +1740,7 @@ BOOST_AUTO_TEST_SUITE_END() // Class_RFT
 BOOST_AUTO_TEST_SUITE(Class_SummarySpecification)
 
 namespace {
-    std::time_t advance(const std::time_t tp, const double sec)
+    [[maybe_unused]] std::time_t advance(const std::time_t tp, const double sec)
     {
         using namespace std::chrono;
 
@@ -1751,22 +1751,6 @@ namespace {
             duration_cast<TP::duration>(DoubSec(sec));
 
         return system_clock::to_time_t(t);
-    }
-
-    std::time_t makeUTCTime(const std::tm& timePoint)
-    {
-        auto       tp    =  timePoint; // Mutable copy.
-        const auto ltime =  std::mktime(&tp);
-        auto       tmval = *std::gmtime(&ltime); // Mutable.
-
-        // offset =  ltime - tmval
-        //        == #seconds by which 'ltime' is AHEAD of tmval.
-        const auto offset =
-            std::difftime(ltime, std::mktime(&tmval));
-
-        // Advance 'ltime' by 'offset' so that std::gmtime(return value) will
-        // have the same broken-down elements as 'tp'.
-        return advance(ltime, offset);
     }
 
     std::string noWGName()
@@ -1780,16 +1764,8 @@ namespace {
     start(const int year, const int month, const int day,
           const int hour, const int minute, const int second)
     {
-        auto timepoint = std::tm {};
-
-        timepoint.tm_sec  = second;
-        timepoint.tm_min  = minute;
-        timepoint.tm_hour = hour;
-        timepoint.tm_mday = day;
-        timepoint.tm_mon  = month - 1;
-        timepoint.tm_year = year - 1900;
-
-        return Opm::TimeService::from_time_t(makeUTCTime(timepoint));
+        return Opm::TimeService::from_time_t(
+            Opm::TimeService::mkdatetime(year, month, day, hour, minute, second));
     }
 
     Opm::EclIO::OutputStream::SummarySpecification::RestartSpecification

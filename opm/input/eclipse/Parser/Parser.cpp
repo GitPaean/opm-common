@@ -1729,7 +1729,13 @@ bool parseState( ParserState& parserState, const Parser& parser, ErrorGuard& err
         */
 
         std::string data_file;
-        if (dataFileName[0] == '/')
+        // Not only a test for a leading '/': a Windows absolute path
+        // ("C:/...") does not start with one and would otherwise be
+        // relativized by the proximate() branch below. is_absolute() alone
+        // would in turn call a rooted path without a drive ("/case/BASE.DATA")
+        // relative on Windows, so the leading-separator rule stays as well.
+        const auto data_path = std::filesystem::path(dataFileName);
+        if (data_path.is_absolute() || data_path.has_root_directory())
             data_file = std::filesystem::canonical(dataFileName).generic_string();
         else
             data_file = std::filesystem::proximate(std::filesystem::canonical(dataFileName)).generic_string();

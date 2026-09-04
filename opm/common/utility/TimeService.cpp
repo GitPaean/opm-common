@@ -353,6 +353,20 @@ Opm::TimeStampUTC& Opm::TimeStampUTC::microseconds(const int us)
 }
 
 
+std::tm Opm::asTm(const TimeStampUTC& tp)
+{
+    auto tm = std::tm{};
+
+    tm.tm_year = tp.year()  - 1900;
+    tm.tm_mon  = tp.month() -    1;
+    tm.tm_mday = tp.day();
+    tm.tm_hour = tp.hour();
+    tm.tm_min  = tp.minutes();
+    tm.tm_sec  = tp.seconds();
+
+    return tm;
+}
+
 std::time_t Opm::asTimeT(const TimeStampUTC& tp)
 {
     return civil_to_sys_seconds(tp.year(), tp.month(), tp.day(),
@@ -363,15 +377,8 @@ std::time_t Opm::asTimeT(const TimeStampUTC& tp)
 std::time_t Opm::asLocalTimeT(const TimeStampUTC& tp)
 {
     // std::mktime() is the only way to apply the local time zone, and it
-    // wants a std::tm; this is the one place that still builds one.
-    auto tm = std::tm{};
-
-    tm.tm_year = tp.year()  - 1900;
-    tm.tm_mon  = tp.month() -    1;
-    tm.tm_mday = tp.day();
-    tm.tm_hour = tp.hour();
-    tm.tm_min  = tp.minutes();
-    tm.tm_sec  = tp.seconds();
+    // takes a std::tm.
+    auto tm = asTm(tp);
     tm.tm_isdst = -1;
 
     return std::mktime(&tm);

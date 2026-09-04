@@ -128,6 +128,20 @@ namespace Opm {
     };
 
     TimeStampUTC operator+(const TimeStampUTC& lhs, std::chrono::duration<double> delta);
+    /// The fields of a broken-down time in a std::tm, for handing to a
+    /// formatting library that takes one.
+    ///
+    /// This converts nothing -- the fields are already civil time -- and is
+    /// not a way back to std::gmtime(). It exists because fmt formats a
+    /// std::chrono::sys_time by calling fmt::gmtime(), which asks the C
+    /// runtime and throws for the dates a schedule reaches; formatting
+    /// fields that are already broken down asks nobody.
+    ///
+    /// Only the date and the time of day are set. tm_wday and tm_yday are
+    /// left at zero, so this is for the %d/%b/%Y/%H/%M/%S specifiers, not
+    /// for %a or %j.
+    std::tm asTm(const TimeStampUTC& tp);
+
     std::time_t asTimeT(const TimeStampUTC& tp);
     std::time_t asLocalTimeT(const TimeStampUTC& tp);
     time_point asTimePoint(const TimeStampUTC& tp);

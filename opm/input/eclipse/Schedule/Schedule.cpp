@@ -403,6 +403,10 @@ namespace Opm {
         return result;
     }
 
+    time_point Schedule::startTime() const {
+        return this->m_sched_deck[0].start_time();
+    }
+
     std::time_t Schedule::getStartTime() const {
         return this->posixStartTime( );
     }

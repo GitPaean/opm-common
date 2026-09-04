@@ -212,6 +212,13 @@ namespace Opm {
          * If the input deck does not specify a start time, Eclipse's 1. Jan
          * 1983 is defaulted
          */
+        /// The start of the simulation.
+        ///
+        /// The time point is what the schedule holds; getStartTime() is the
+        /// same instant as a std::time_t, for the callers that want a number
+        /// to do arithmetic on.
+        time_point startTime() const;
+
         std::time_t getStartTime() const;
         std::time_t posixStartTime() const;
         std::time_t posixEndTime() const;

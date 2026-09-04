@@ -32,7 +32,6 @@
 #include <opm/common/utility/gpuDecorators.hpp>
 
 #include <cmath>
-#include <type_traits>
 
 namespace Opm {
 namespace IAPWS {
@@ -55,22 +54,12 @@ namespace IAPWS {
 template <class Scalar>
 class Common
 {
-    // Source values; the public constants and the ones derived from them
-    // all come from these.
-    static constexpr double molarMass_si       = 18.01518e-3; // [kg/mol]
-    static constexpr double criticalDensity_si = 322.0;       // [kg/m^3]
-
-    // Computed in the floating-point type behind Scalar and converted; see
-    // Constants.hpp.
-    using ComputeT = typename detail::ConstantsComputeType<Scalar>::type;
-
 public:
     //! The molar mass of water \f$\mathrm{[kg/mol]}\f$
-    static constexpr Scalar molarMass = static_cast<Scalar>(molarMass_si);
+    static constexpr Scalar molarMass = Scalar(18.01518e-3);
 
     //! Specific gas constant of water \f$\mathrm{[J/(kg*K)]}\f$
-    static constexpr Scalar Rs =
-        static_cast<Scalar>(Constants<ComputeT>::R / static_cast<ComputeT>(molarMass_si));
+    static constexpr Scalar Rs = Constants<Scalar>::R / molarMass;
 
     //! Critical temperature of water \f$\mathrm{[K]}\f$
     static constexpr Scalar criticalTemperature = Scalar(647.096);
@@ -79,15 +68,13 @@ public:
     static constexpr Scalar criticalPressure = Scalar(22.064e6);
 
     //! Density of water at the critical point \f$\mathrm{[kg/m^3]}\f$
-    static constexpr Scalar criticalDensity = static_cast<Scalar>(criticalDensity_si);
+    static constexpr Scalar criticalDensity = Scalar(322.0);
 
     //! Critical volume of water \f$\mathrm{[m^3/kmol]}\f$
     static constexpr Scalar criticalVolume = Scalar(5.595e-2);
 
     //! Critical molar volume of water \f$\mathrm{[m^3/mol]}\f$
-    static constexpr Scalar criticalMolarVolume =
-        static_cast<Scalar>(static_cast<ComputeT>(molarMass_si)
-                            / static_cast<ComputeT>(criticalDensity_si));
+    static constexpr Scalar criticalMolarVolume = molarMass / criticalDensity;
 
     //! The acentric factor of water \f$\mathrm{[-]}\f$
     static constexpr Scalar acentricFactor = Scalar(0.344);

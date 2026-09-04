@@ -272,6 +272,21 @@ function(opm_add_test TestName)
     set(SKIP_CUR_TEST "1")
   endif()
 
+  # A run-only test (EXE_TARGET without SOURCES) reuses a target built
+  # elsewhere, which need not exist in every configuration: the examples
+  # opm-simulators' modelTests.cmake runs are absent under
+  # -DBUILD_EXAMPLES=OFF. Both add_dependencies() on a missing target and
+  # $<TARGET_FILE:...> in add_test() are hard errors. While BUILD_TESTING
+  # is OFF - tests neither built nor run by default - such a test is left
+  # out with a status line rather than failing the configure; with
+  # BUILD_TESTING ON the missing target remains an error, so a misspelled
+  # EXE_TARGET is still caught.
+  if(NOT SKIP_CUR_TEST AND NOT BUILD_TESTING AND NOT CURTEST_ALWAYS_ENABLE
+     AND NOT CURTEST_SOURCES AND NOT TARGET ${CURTEST_EXE_TARGET})
+    message(STATUS "Test ${TestName} skipped: target ${CURTEST_EXE_TARGET} is not built in this configuration")
+    set(SKIP_CUR_TEST "1")
+  endif()
+
   if(NOT SKIP_CUR_TEST)
     if(CURTEST_SOURCES)
       # in addition to being run, the test must be compiled. (the

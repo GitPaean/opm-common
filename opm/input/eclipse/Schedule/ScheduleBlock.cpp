@@ -117,8 +117,8 @@ ScheduleBlock ScheduleBlock::serializationTestObject()
 {
     ScheduleBlock block;
     block.m_time_type = ScheduleTimeType::TSTEP;
-    block.m_start_time = TimeService::from_time_t( asTimeT( TimeStampUTC( 2003, 10, 10 )));
-    block.m_end_time = TimeService::from_time_t( asTimeT( TimeStampUTC( 1993, 07, 06 )));
+    block.m_start_time = asTimePoint( TimeStampUTC( 2003, 10, 10 ));
+    block.m_end_time = asTimePoint( TimeStampUTC( 1993, 07, 06 ));
     block.m_location = KeywordLocation::serializationTestObject();
     block.m_keywords = {DeckKeyword::serializationTestObject()};
     return block;
@@ -158,16 +158,17 @@ void ScheduleBlock::dump_time(const UnitSystem& usys,
 
 void ScheduleBlock::writeDates(DeckOutput& output) const
 {
-    const auto ts = TimeStampUTC {
-        TimeService::to_time_t(this->start_time())
-    };
+    namespace ch = std::chrono;
 
-    const auto ecl_month = TimeService::eclipseMonthNames().at(ts.month());
+    const auto ymd = ch::year_month_day { ch::floor<ch::days>(this->start_time()) };
+    const auto month = static_cast<int>(static_cast<unsigned>(ymd.month()));
+
+    const auto ecl_month = TimeService::eclipseMonthNames().at(month);
     const auto dates_string = fmt::format(R"(
 DATES
    {} '{}' {} /
 /
-)", ts.day(), ecl_month, ts.year());
+)", static_cast<unsigned>(ymd.day()), ecl_month, static_cast<int>(ymd.year()));
 
     output.write_string(dates_string);
 }

@@ -973,8 +973,7 @@ Defaulted grid coordinates is not allowed for COMPDAT as part of ACTIONX)"
         } else if (report_step >= this->m_sched_deck.size()) {
             throw std::invalid_argument(fmt::format("Well status change for report step {} requested, this exceeds the total number of report steps, being {}.", report_step, this->m_sched_deck.size() - 1));
         }
-        std::time_t start_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::from_time_t(0));
-        Opm::Action::ActionX action("openwell", 1, 0.0, start_time);
+        Opm::Action::ActionX action("openwell", 1, 0.0, std::time_t{0});
         DeckItem wellItem("WELL", std::string());
         wellItem.push_back(well_name);
         DeckItem statusItem("STATUS", std::string());

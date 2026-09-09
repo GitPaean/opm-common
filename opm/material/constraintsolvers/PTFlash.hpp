@@ -48,6 +48,7 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/classname.hh>
 
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <stdexcept>
@@ -269,8 +270,8 @@ public:
             L_scalar = solveRachfordRice_g_(K_scalar, z_scalar, verbosity);
             flash_2ph(z_scalar, twoPhaseMethod, K_scalar, L_scalar, fluid_state, flash_tolerance, eos_type, verbosity);
         } else {
-            // Cell is one-phase. Use Li's phase labeling method to see if it's liquid or vapor
-            L_scalar = li_single_phase_label_(fluid_state, z_scalar, verbosity);
+            // Cell is one-phase. Label it by the phase identification parameter.
+            L_scalar = pip_single_phase_label_(fluid_state, z_scalar, eos_type, verbosity);
         }
         fluid_state.setLvalue(L_scalar);
         return is_single_phase;
@@ -324,6 +325,104 @@ public:
         }
         OPM_THROW(std::runtime_error,
                   fmt::format(" Rachford-Rice bisection failed with {} iterations!", max_it));
+    }
+
+    /*!
+     * \brief The phase identification parameter of Venkatarathnam and
+     *        Oellrich (2011) for a single-phase mixture,
+     *
+     *   Pi = V [ (d2P/dVdT) / (dP/dT) - (d2P/dV2) / (dP/dV) ],
+     *
+     * evaluated on the stable root of the cubic. An ideal gas gives exactly
+     * one; a vapour lies below it and a liquid above. Unlike a pseudo-critical
+     * temperature it sees the pressure, and unlike a compressibility-factor
+     * threshold it needs no tuning.
+     */
+    template <class FluidState, class Vector>
+    static Scalar phaseIdentificationParameter(const FluidState& fluid_state,
+                                               const Vector& z,
+                                               const EOSType& eos_type)
+    {
+        using ScalarFluidState = CompositionalFluidState<Scalar, FluidSystem>;
+        using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
+        constexpr unsigned oil = oilPhaseIdx;
+        constexpr unsigned gas = gasPhaseIdx;
+
+        const Scalar T = getValue(fluid_state.temperature(0));
+        const Scalar p = getValue(fluid_state.pressure(0));
+
+        ScalarFluidState fs;
+        fs.setTemperature(T);
+        for (unsigned phaseIdx : {oil, gas}) {
+            fs.setPressure(phaseIdx, p);
+            for (int compIdx = 0; compIdx < numComponents; ++compIdx) {
+                fs.setMoleFraction(phaseIdx, compIdx, getValue(z[compIdx]));
+            }
+        }
+
+        // The oil slot carries the liquid root and the gas slot the vapour
+        // root of the same composition. With three roots the stable one has
+        // the lower Gibbs energy, sum_i z_i ln phi_i; with one they coincide.
+        ParamCache pc(eos_type);
+        pc.updatePhase(fs, oil);
+        pc.updatePhase(fs, gas);
+        auto reducedGibbs = [&](unsigned phaseIdx) {
+            Scalar g = 0;
+            for (int compIdx = 0; compIdx < numComponents; ++compIdx) {
+                g += getValue(z[compIdx])
+                   * std::log(FluidSystem::fugacityCoefficient(fs, pc, phaseIdx, compIdx));
+            }
+            return g;
+        };
+        const unsigned stable = reducedGibbs(oil) <= reducedGibbs(gas) ? oil : gas;
+
+        constexpr Scalar R = Constants<Scalar>::R;
+        const Scalar RT = R * T;
+        const Scalar V  = pc.molarVolume(stable);
+        const Scalar a  = pc.A(stable) * RT * RT / p;
+        const Scalar b  = pc.B(stable) * RT / p;
+        const Scalar m1 = pc.m1(stable);
+        const Scalar m2 = pc.m2(stable);
+
+        // b is independent of temperature; a depends on it through the alpha
+        // function, so take da/dT from the mixture parameter at T +- h.
+        const Scalar h = 1.0e-4 * T;
+        auto mixtureA = [&](Scalar temperature) {
+            ScalarFluidState fsT = fs;
+            fsT.setTemperature(temperature);
+            ParamCache pcT(eos_type);
+            pcT.updateEosParams(fsT, stable);
+            const Scalar RTt = R * temperature;
+            return pcT.A(stable) * RTt * RTt / p;
+        };
+        const Scalar dadT = (mixtureA(T + h) - mixtureA(T - h)) / (2 * h);
+
+        // P = RT / (V - b) - a / D, with D = (V + m1 b)(V + m2 b).
+        const Scalar Vb = V - b;
+        const Scalar D  = (V + m1 * b) * (V + m2 * b);
+        const Scalar dD = 2 * V + (m1 + m2) * b;
+        const Scalar dPdV    = -RT / (Vb * Vb) + a * dD / (D * D);
+        const Scalar d2PdV2  = 2 * RT / (Vb * Vb * Vb) + a * (2 / (D * D) - 2 * dD * dD / (D * D * D));
+        const Scalar dPdT    = R / Vb - dadT / D;
+        const Scalar d2PdVdT = -R / (Vb * Vb) + dadT * dD / (D * D);
+
+        return V * (d2PdVdT / dPdT - d2PdV2 / dPdV);
+    }
+
+    template <class FluidState, class Vector>
+    static typename Vector::field_type pip_single_phase_label_(const FluidState& fluid_state,
+                                                              const Vector& z,
+                                                              const EOSType& eos_type,
+                                                              const int verbosity)
+    {
+        const Scalar pip = phaseIdentificationParameter(fluid_state, z, eos_type);
+        const bool liquid = pip > 1.0;
+        if (verbosity >= 1) {
+            OpmLog::debug(fmt::format("Cell is single-phase, {} (L = {}) by the phase "
+                                      "identification parameter {}",
+                                      liquid ? "liquid" : "vapor", liquid ? 1.0 : 0.0, pip));
+        }
+        return liquid ? 1.0 : 0.0;
     }
 
     template <class Vector, class FlashFluidState>

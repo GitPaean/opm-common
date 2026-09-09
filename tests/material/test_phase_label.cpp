@@ -96,6 +96,28 @@ Scalar liLabel(Scalar temperature, Scalar pressure, const ComponentVector& z)
     return Flash::li_single_phase_label_(stateAt(temperature, pressure), z, 0);
 }
 
+// The label the flash assigns, given the label an earlier flash left in the
+// state: 0 vapour, 1 liquid, anything else no prior label.
+Scalar labelWithPrior(Scalar temperature, Scalar pressure, const ComponentVector& z, Scalar prior)
+{
+    FluidState fs = stateAt(temperature, pressure);
+    fs.setLvalue(prior);
+    return Flash::pip_single_phase_label_(fs, z, eosType, 0);
+}
+
+// The pressure on the 300 K methane isotherm where the parameter first
+// exceeds one, so that a state just inside the band can be constructed.
+Scalar methaneCrossingPressure()
+{
+    const ComponentVector z{0.0, 1.0, 0.0};
+    Scalar lo = 1.0e5, hi = 2000.0e5;
+    for (int i = 0; i < 60; ++i) {
+        const Scalar mid = 0.5 * (lo + hi);
+        (pip(300.0, mid, z) > 1.0 ? hi : lo) = mid;
+    }
+    return hi;
+}
+
 } // namespace
 
 BOOST_GLOBAL_FIXTURE(Fixture);
@@ -168,4 +190,34 @@ BOOST_AUTO_TEST_CASE(SupercriticalIsothermCrossesOnce)
     BOOST_TEST_MESSAGE("methane at 300 K, " << p / 1.05e5 << " bar: " << pip(T, p / 1.05, z));
     BOOST_CHECK_EQUAL(crossings, 1);
     BOOST_CHECK(wasLiquid);
+}
+
+// Inside the band around one an earlier label is kept, whichever it was;
+// with no earlier label the parameter decides.
+BOOST_AUTO_TEST_CASE(ContinuityHoldsTheLabelInsideTheBand)
+{
+    const ComponentVector z{0.0, 1.0, 0.0};
+    const Scalar p = 1.02 * methaneCrossingPressure();
+    const Scalar value = pip(300.0, p, z);
+    BOOST_TEST_MESSAGE("methane just past the crossing, " << p / 1e5 << " bar: " << value);
+    BOOST_REQUIRE_GT(value, 1.0);
+    BOOST_REQUIRE_LT(value, 1.05);
+    BOOST_CHECK_EQUAL(labelWithPrior(300.0, p, z, 0.0), 0.0);
+    BOOST_CHECK_EQUAL(labelWithPrior(300.0, p, z, 1.0), 1.0);
+    BOOST_CHECK_EQUAL(labelWithPrior(300.0, p, z, -1.0), 1.0);
+}
+
+// A dilute gas sits just below one for good, so a liquid label must not
+// survive there: the band is narrow on that side.
+BOOST_AUTO_TEST_CASE(DiluteGasIsNotHeldLiquid)
+{
+    const ComponentVector z{0.0, 1.0, 0.0};
+    BOOST_CHECK_EQUAL(labelWithPrior(300.0, 1.0e5, z, 1.0), 0.0);
+}
+
+// Far from one the parameter overrides any earlier label.
+BOOST_AUTO_TEST_CASE(DecisiveStateOverridesThePrior)
+{
+    const ComponentVector z{0.0, 0.0, 1.0};
+    BOOST_CHECK_EQUAL(labelWithPrior(300.0, 1.0e5, z, 0.0), 1.0);
 }

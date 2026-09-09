@@ -471,11 +471,26 @@ public:
                                                               const int verbosity)
     {
         const Scalar pip = phaseIdentificationParameter(fluid_state, z, eos_type);
-        const bool liquid = pip > 1.0;
+
+        // A label from an earlier flash is kept while the parameter stays close
+        // to one, so a cell hovering at the boundary does not flip between
+        // iterations. The band is narrow on the vapour side, because a dilute
+        // gas approaches one from below and must not be held liquid, and wider
+        // on the liquid side, where liquids sit well above one. Only an exact
+        // 0 or 1 is a prior label; the wellbore starts at -1 and a two-phase
+        // flash leaves a fraction.
+        constexpr Scalar vapourBand = 0.005;
+        constexpr Scalar liquidBand = 0.05;
+        const Scalar prior = getValue(fluid_state.L());
+        const bool hasPrior = (prior == 0.0) || (prior == 1.0);
+        const bool inBand = (pip > 1.0 - vapourBand) && (pip < 1.0 + liquidBand);
+        const bool liquid = (hasPrior && inBand) ? (prior == 1.0) : (pip > 1.0);
+
         if (verbosity >= 1) {
             OpmLog::debug(fmt::format("Cell is single-phase, {} (L = {}) by the phase "
-                                      "identification parameter {}",
-                                      liquid ? "liquid" : "vapor", liquid ? 1.0 : 0.0, pip));
+                                      "identification parameter {}{}",
+                                      liquid ? "liquid" : "vapor", liquid ? 1.0 : 0.0, pip,
+                                      (hasPrior && inBand) ? ", keeping the earlier label" : ""));
         }
         return liquid ? 1.0 : 0.0;
     }

@@ -585,6 +585,7 @@ list(APPEND TEST_SOURCE_FILES
   tests/test_Summary_Group.cpp
   tests/test_Summary_GSatProd.cpp
   tests/test_Tables.cpp
+  tests/test_TimeService.cpp
   tests/test_uniformtablelinear.cpp
   tests/test_Uns2CPG.cpp
   tests/test_Visitor.cpp
@@ -703,6 +704,7 @@ list(APPEND DUNE_TEST_SOURCE_FILES
   tests/material/test_co2brinepvt.cpp
   tests/material/test_co2brine_ptflash.cpp
   tests/material/test_components.cpp
+  tests/material/test_constants.cpp
   tests/material/test_eclblackoilfluidsystem.cpp
   tests/material/test_cubiceos_finite_guard.cpp
   tests/material/test_eclblackoilfluidsystemnonstatic.cpp

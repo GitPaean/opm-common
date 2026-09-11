@@ -1613,6 +1613,122 @@ DATES       -- 4
                                    kw_list2.begin(), kw_list2.end() );
 }
 
+BOOST_AUTO_TEST_CASE(RPTSCHED_Compositional_Mnemonics)
+{
+    const auto deck = Parser{}.parseString(R"(RUNSPEC
+DIMENS
+1 5 2 /
+COMPS
+3 /
+GRID
+DXV
+1*100 /
+DYV
+5*100 /
+DZV
+2*10 /
+TOPS
+5*2000 /
+SOLUTION
+SCHEDULE
+RPTRST
+ 'BASIC=2' /
+RPTSCHED
+ 'PRESSURE' 'PSAT' 'ZMF' /
+TSTEP
+ 5*5 /
+END
+)");
+
+    const auto es = EclipseState { deck };
+    const auto sched = Schedule { deck, es };
+
+    const auto& kw = sched.rst_keywords(1);
+
+    BOOST_CHECK_MESSAGE(kw.count("PSAT") == 1,
+                        "RPTSCHED must accept PSAT in a compositional run");
+    BOOST_CHECK_MESSAGE(kw.count("ZMF") == 1,
+                        "RPTSCHED must accept ZMF in a compositional run");
+}
+
+BOOST_AUTO_TEST_CASE(RPTSOL_Compositional_Mnemonics)
+{
+    const auto deck = Parser{}.parseString(R"(RUNSPEC
+DIMENS
+1 5 2 /
+COMPS
+3 /
+GRID
+DXV
+1*100 /
+DYV
+5*100 /
+DZV
+2*10 /
+TOPS
+5*2000 /
+SOLUTION
+RPTSOL
+ 'RESTART=2' 'PRESSURE' 'PSAT' 'ZMF' /
+SCHEDULE
+TSTEP
+ 5*5 /
+END
+)");
+
+    const auto es = EclipseState { deck };
+    const auto sched = Schedule { deck, es };
+
+    const auto expect = std::map {
+        std::pair { std::string("PRESSURE"), 1 },
+        std::pair { std::string("PSAT"), 1 },
+        std::pair { std::string("ZMF"), 1 },
+    };
+
+    BOOST_CHECK_MESSAGE(sched.write_rst_file(0), "Must write initial restart file");
+    BOOST_CHECK_MESSAGE(sched.rst_keywords(0) == expect,
+                        "Initial restart must request the compositional mnemonics");
+}
+
+BOOST_AUTO_TEST_CASE(RPTSOL_Compositional_Mnemonics_Rejected_Without_COMPS)
+{
+    auto parseContext = ParseContext{};
+    parseContext.update(ParseContext::RPT_UNKNOWN_MNEMONIC, InputErrorAction::IGNORE);
+
+    auto errors = ErrorGuard{};
+    const auto deck = Parser{}.parseString(R"(RUNSPEC
+DIMENS
+1 5 2 /
+GRID
+DXV
+1*100 /
+DYV
+5*100 /
+DZV
+2*10 /
+TOPS
+5*2000 /
+SOLUTION
+RPTSOL
+ 'RESTART=2' 'PRESSURE' 'PSAT' /
+SCHEDULE
+TSTEP
+ 5*5 /
+END
+)");
+
+    const auto es = EclipseState { deck };
+    const auto sched = Schedule { deck, es, parseContext, errors, {} };
+
+    // A black-oil run keeps the RPTSCHED mnemonics, which have no PSAT.
+    const auto expect = std::map {
+        std::pair { std::string("PRESSURE"), 1 },
+    };
+
+    BOOST_CHECK_MESSAGE(sched.rst_keywords(0) == expect,
+                        "PSAT must not be accepted outside a compositional run");
+}
+
 BOOST_AUTO_TEST_CASE(RPTSOL_Properties)
 {
     const auto deck = Parser{}.parseString(R"(RUNSPEC

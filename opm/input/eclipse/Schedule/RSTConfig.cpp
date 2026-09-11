@@ -264,6 +264,24 @@ namespace {
         return { mnemonic_list.begin(), mnemonic_list.end() };
     }
 
+    // RPTSOL and RPTSCHED are normalised against the RPTSCHED mnemonics,
+    // which carry none of the compositional output vectors.  A compositional
+    // run accepts the RPTRST ones as well; without that a request such as
+    // PSAT is dropped with a diagnostic rather than honoured.
+    Opm::RPTKeywordNormalisation::MnemonicMap
+    normaliseSchedStyle(const Opm::DeckKeyword&  keyword,
+                        const Opm::ParseContext& parseContext,
+                        Opm::ErrorGuard&         errors,
+                        const bool               compositional)
+    {
+        if (! compositional) {
+            return Opm::normaliseRptSchedKeyword(keyword, parseContext, errors);
+        }
+
+        return Opm::normaliseRptSchedKeyword(keyword, parseContext, errors,
+                                             IsRptRstSchedMnemonic { true });
+    }
+
     std::pair<
         std::map<std::string, int>,
         std::pair<std::optional<int>, std::optional<int>>
@@ -417,7 +435,8 @@ void RSTConfig::handleRPTSOL(const DeckKeyword&  keyword,
     // partially handled and we may choose to refine this logic by
     // introducing predicates specific to the RPTSOL keyword later.
     auto mnemonics =
-        asMap(normaliseRptSchedKeyword(keyword, parseContext, errors));
+        asMap(normaliseSchedStyle(keyword, parseContext, errors,
+                                  this->compositional));
 
     const auto restart = extract(mnemonics, "RESTART");
     const auto request_restart =
@@ -500,7 +519,8 @@ void RSTConfig::handleRPTSCHED(const DeckKeyword&  keyword,
                                const ParseContext& parseContext,
                                ErrorGuard&         errors)
 {
-    auto mnemonic_list = normaliseRptSchedKeyword(keyword, parseContext, errors);
+    auto mnemonic_list = normaliseSchedStyle(keyword, parseContext, errors,
+                                            this->compositional);
 
     auto nothingPos = std::ranges::find_if(mnemonic_list,
                                            [](const auto& mnemonicPair)

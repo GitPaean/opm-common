@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -166,5 +167,22 @@ Opm::normaliseRptSchedKeyword(const DeckKeyword&  kw,
 {
     return RPTKeywordNormalisation {
         makeIntegerControlHandler(), IsRptSchedMnemonic{}
+    }.normaliseKeyword(kw, parseContext, errors);
+}
+
+Opm::RPTKeywordNormalisation::MnemonicMap
+Opm::normaliseRptSchedKeyword(const DeckKeyword&  kw,
+                              const ParseContext& parseContext,
+                              ErrorGuard&         errors,
+                              RPTKeywordNormalisation::MnemonicPredicate alsoAccept)
+{
+    return RPTKeywordNormalisation {
+        makeIntegerControlHandler(),
+        [isRptSched = IsRptSchedMnemonic{}, accept = std::move(alsoAccept)]
+        (const std::string& mnemonic)
+        {
+            return isRptSched(mnemonic)
+                || (accept && accept(mnemonic));
+        }
     }.normaliseKeyword(kw, parseContext, errors);
 }

@@ -49,6 +49,31 @@ namespace Opm {
                              const ParseContext& parseContext,
                              ErrorGuard&         errors);
 
+    /// Normalise RPTSHCED keyword specification into sequence of mnemonics
+    /// and associate values, accepting an additional set of mnemonics.
+    ///
+    /// The RPTSCHED mnemonics do not cover the compositional output
+    /// vectors.  Callers which must accept those, such as RPTSOL in a
+    /// compositional run, supply a predicate for the additional set.
+    ///
+    /// \param[in] kw Report keyword specification, typically from RPTSCHED,
+    /// RPTRST, or RPTSOL.
+    ///
+    /// \param[in] parseContext Error handling controls.
+    ///
+    /// \param[in,out] errors Collection of parse errors encountered thus
+    /// far.  Behaviour controlled by \p parseContext.
+    ///
+    /// \param[in] alsoAccept Predicate for mnemonics which are valid in
+    /// addition to the RPTSCHED ones.  May be empty.
+    ///
+    /// \return Sequence of mnemonics and associate integer values.
+    RPTKeywordNormalisation::MnemonicMap
+    normaliseRptSchedKeyword(const DeckKeyword&  kw,
+                             const ParseContext& parseContext,
+                             ErrorGuard&         errors,
+                             RPTKeywordNormalisation::MnemonicPredicate alsoAccept);
+
 } // namespace Opm
 
 #endif // OPM_RPTSHCED_KEYWORD_NORMALISATION_HPP_INCLUDED

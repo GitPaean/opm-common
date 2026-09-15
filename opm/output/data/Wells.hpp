@@ -1050,29 +1050,31 @@ namespace Opm { namespace data {
 
     /// Well performance evaluation event indicators.
     ///
-    /// Counters for the well and connection status changes made by the
-    /// simulator during the current time step.  These back the WPWE0 to
-    /// WPWE7 summary vectors and are reset at the start of every time step.
+    /// Counters for the connection changes of the current time step,
+    /// whatever their source, and for the well status changes the simulator
+    /// made itself.  These back the WPWE0 to WPWE7 summary vectors and are
+    /// reset at the start of every time step.
     struct WellEvents
     {
-        /// WPWE0: one if the well was drilled this time step, i.e. entered
-        /// the schedule while the run was under way.
+        /// WPWE0: one if the well was drilled this time step.  Never set:
+        /// there is no drilling queue, and a well entering the schedule
+        /// through WELSPECS is not reported as drilled.
         int drilled{0};
 
         /// WPWE1: number of connections opened this time step.  Counted
         /// only while the well is neither shut nor stopped.
         int connsOpened{0};
 
-        /// WPWE2: number of connections closed this time step, excluding
-        /// those closed by a '+CON' workover.
+        /// WPWE2: number of connections closed this time step, whatever
+        /// closed them.
         int connsClosed{0};
 
         /// WPWE3: one if the connections were closed to the bottom of the
-        /// wellbore, i.e., by a '+CON' workover, or because 'CON' workovers
-        /// closed every connection the well had.
+        /// wellbore, i.e., the closures of this time step left the well able
+        /// to flow over its topmost completion alone, or not at all.
         int closedToBottom{0};
 
-        /// WPWE4: one if the well was stopped this time step.
+        /// WPWE4: one if the simulator stopped the well this time step.
         int stopped{0};
 
         /// WPWE5: one if the well switched from injector to producer.
@@ -1081,7 +1083,7 @@ namespace Opm { namespace data {
         /// WPWE6: one if the well switched from producer to injector.
         int producerToInjector{0};
 
-        /// WPWE7: one if the well was shut this time step.
+        /// WPWE7: one if the simulator shut the well this time step.
         int shut{0};
 
         template <class Serializer>

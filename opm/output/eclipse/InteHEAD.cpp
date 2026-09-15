@@ -903,7 +903,7 @@ Opm::RestartIO::getSimulationTimePoint(const std::time_t start,
     const auto usec          = static_cast<int>(elapsed_usec % usec_per_sec);
 
     const auto now = TimeService::advance(start, static_cast<double>(whole_seconds));
-    const auto tp  = *std::gmtime(&now);
+    const auto tp  = TimeService::portable_gmtime(now);
 
     return {
         // Y-m-d

@@ -79,9 +79,9 @@ namespace Opm { namespace data {
                 mass_gas         = (1 << 24),
                 mass_wat         = (1 << 25),
                 wat_frac         = (1 << 26),
-                // Free (non-dissolved/non-vaporized) gas/oil, accumulated
-                // directly per perforation rather than derived as
-                // (gas/oil - dissolved_gas/vaporized_oil).
+                // Explicit free (non-dissolved/non-vaporized) gas/oil.
+                // The simulator supplies the split; summary expressions
+                // must not reconstruct it from independently computed totals.
                 free_gas         = (1 << 27),
                 free_oil         = (1 << 28),
             };

@@ -59,6 +59,9 @@
 #include <opm/input/eclipse/EclipseState/Tables/ZmfvdTable.hpp>
 #include <opm/input/eclipse/EclipseState/Tables/CompvdTable.hpp>
 
+#include <opm/common/utility/MemPacker.hpp>
+#include <opm/common/utility/Serializer.hpp>
+
 #include <opm/input/eclipse/Schedule/VFPProdTable.hpp>
 #include <opm/input/eclipse/Schedule/VFPInjTable.hpp>
 
@@ -3319,6 +3322,46 @@ END
 }
 
 
+BOOST_AUTO_TEST_CASE(CompvdTable_SurvivesSerialization) {
+    // The table containers serialize their tables as SimpleTable, so anything
+    // COMPVD keeps outside the table body is lost when the parsed state is
+    // distributed to the other ranks of a parallel run.
+    const auto deck = Opm::Parser{}.parseString(R"(
+RUNSPEC
+METRIC
+COMPS
+3 /
+EQLDIMS
+1 /
+PROPS
+COMPVD
+  100.0  0.2  0.3  0.5  0  150.0
+  200.0  0.1  0.2  0.7  0  160.0
+  300.0  0.4  0.1  0.5  1  170.0 /
+END
+)");
+
+    const auto source = Opm::TableManager{ deck };
+    Opm::TableManager target{};
+
+    Opm::Serialization::MemPacker packer;
+    Opm::Serializer serializer(packer);
+    serializer.pack(source);
+    serializer.unpack(target);
+
+    const auto& table = target.getCompvdTables().getTable<CompvdTable>(0);
+    BOOST_CHECK_EQUAL(table.numRows(), 3);
+    BOOST_CHECK_EQUAL(table.numComponents(), 3);
+    BOOST_CHECK(table.phaseFlag(0) == CompvdTable::Phase::Vapor);
+    BOOST_CHECK(table.phaseFlag(1) == CompvdTable::Phase::Vapor);
+    BOOST_CHECK(table.phaseFlag(2) == CompvdTable::Phase::Liquid);
+    BOOST_CHECK_EQUAL(table.phaseFlags().size(), std::size_t{3});
+
+    // The columns either side of the flag have to keep their meaning too.
+    BOOST_CHECK_CLOSE(table.getDepthColumn()[2], 300.0, epsilon());
+    BOOST_CHECK_CLOSE(table.getSaturationPressureColumn()[2], 170.0 * 1.0e5, epsilon());
+}
+
 BOOST_AUTO_TEST_CASE(CompvdTable_ThreeComponents) {
     // COMPVD with 3 components, 2 equilibrium regions.
     // Each row: depth, z1, z2, z3, phase-flag (0=vapor, 1=liquid), Psat.
@@ -3350,8 +3393,8 @@ END
     {
         const auto& t1 = compvd.getTable<CompvdTable>(0);
         BOOST_CHECK_EQUAL(t1.numRows(), 3);
-        // depth + 3 component columns + Psat (phase flag is stored separately as int)
-        BOOST_CHECK_EQUAL(t1.numColumns(), 5);
+        // depth + 3 component columns + phase flag + Psat
+        BOOST_CHECK_EQUAL(t1.numColumns(), 6);
         BOOST_CHECK_EQUAL(t1.numComponents(), 3);
 
         const auto& depth = t1.getDepthColumn();
@@ -3384,7 +3427,7 @@ END
     {
         const auto& t2 = compvd.getTable<CompvdTable>(1);
         BOOST_CHECK_EQUAL(t2.numRows(), 2);
-        BOOST_CHECK_EQUAL(t2.numColumns(), 5);
+        BOOST_CHECK_EQUAL(t2.numColumns(), 6);
 
         BOOST_CHECK(t2.phaseFlag(0) == CompvdTable::Phase::Vapor);
         BOOST_CHECK(t2.phaseFlag(1) == CompvdTable::Phase::Liquid);

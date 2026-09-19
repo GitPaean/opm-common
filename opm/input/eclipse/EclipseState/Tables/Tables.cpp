@@ -3007,10 +3007,11 @@ CompvdTable::CompvdTable(const DeckItem& item,
         m_schema.addColumn(ColumnSchema(fmt::format("Z_COMP{}", c),
                                         Table::RANDOM, Table::DEFAULT_NONE));
     }
-    // The phase flag is intentionally NOT added as a SimpleTable column: it is
-    // a discrete label (vapor/liquid), and SimpleTable
-    // columns are hard-coded to std::vector<double> with ordering/interpolation
-    // semantics that do not apply.  We store it separately in phaseFlags_.
+    // The phase flag is a discrete label rather than a quantity to interpolate,
+    // but it is held as a column all the same: a data member of this class
+    // would be dropped when a table container serializes its tables as
+    // SimpleTable.
+    m_schema.addColumn(ColumnSchema("PHASE", Table::RANDOM, Table::DEFAULT_NONE));
     m_schema.addColumn(ColumnSchema("PSAT", Table::RANDOM, Table::DEFAULT_NONE));
 
     addColumns();
@@ -3027,7 +3028,6 @@ CompvdTable::CompvdTable(const DeckItem& item,
     }
 
     const auto nrows = item.data_size() / ncol;
-    phaseFlags_.reserve(nrows);
     const auto& data = item.getSIDoubleData();
 
     const std::string tableName{"COMPVD"};
@@ -3056,7 +3056,7 @@ CompvdTable::CompvdTable(const DeckItem& item,
             getColumn(1 + c).addValue(moles[c], tableName);
         }
 
-        // Phase flag: stored as a strong enum, validated to be exactly 0 or 1.
+        // Phase flag: validated to be exactly 0 or 1, and read back as the enum.
         const double flagRaw = data.at(rowStart + 1 + numComponents);
         if (flagRaw != 0.0 && flagRaw != 1.0) {
             const std::string reason = fmt::format(
@@ -3064,11 +3064,11 @@ CompvdTable::CompvdTable(const DeckItem& item,
                 tableID + 1, row + 1, flagRaw);
             throw OpmInputError(reason, location);
         }
-        phaseFlags_.push_back(flagRaw == 0.0 ? Phase::Vapor : Phase::Liquid);
+        getColumn(1 + numComponents).addValue(flagRaw, tableName);
 
         // Saturation-pressure column
         const double siPsat = unitSystem.to_si(UnitSystem::measure::pressure, data.at(rowStart + 2 + numComponents));
-        getColumn(1 + numComponents).addValue(siPsat, tableName);
+        getColumn(2 + numComponents).addValue(siPsat, tableName);
     }
 
     normalized.report(tableName, tableID, location);
@@ -3097,17 +3097,35 @@ CompvdTable::getMoleFractionColumn(const int componentIdx) const
 const TableColumn&
 CompvdTable::getSaturationPressureColumn() const
 {
+    return SimpleTable::getColumn(2 + this->numComponents());
+}
+
+const TableColumn&
+CompvdTable::phaseColumn() const
+{
     return SimpleTable::getColumn(1 + this->numComponents());
 }
 
 CompvdTable::Phase CompvdTable::phaseFlag(std::size_t rowIdx) const
 {
-    if (rowIdx >= this->phaseFlags_.size()) {
+    const auto& flags = this->phaseColumn();
+    if (rowIdx >= flags.size()) {
         throw std::out_of_range(fmt::format(
             "CompvdTable::phaseFlag: row index {} out of valid range [0, {}]",
-            rowIdx, this->phaseFlags_.size() - 1));
+            rowIdx, flags.size() - 1));
     }
-    return this->phaseFlags_[rowIdx];
+    return (flags[rowIdx] == 0.0) ? Phase::Vapor : Phase::Liquid;
+}
+
+std::vector<CompvdTable::Phase> CompvdTable::phaseFlags() const
+{
+    const auto& flags = this->phaseColumn();
+    std::vector<Phase> phases;
+    phases.reserve(flags.size());
+    for (std::size_t row = 0; row < flags.size(); ++row) {
+        phases.push_back((flags[row] == 0.0) ? Phase::Vapor : Phase::Liquid);
+    }
+    return phases;
 }
 
 } // namespace Opm

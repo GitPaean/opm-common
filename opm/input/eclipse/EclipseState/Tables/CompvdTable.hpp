@@ -39,11 +39,12 @@ namespace Opm {
     ///                 1 = liquid (below GOC)          (int)
     ///   * Observed saturation pressure Psat           (Pressure)
     ///
-    /// Internally only the depth, mole-fraction, and Psat columns are
-    /// stored in the underlying SimpleTable (since SimpleTable is
-    /// hard-coded to operate on doubles).  The phase flag is a discrete
-    /// label and is therefore stored separately as a `std::vector<int>`
-    /// exposed via `phaseFlag(row)` / `phaseFlags()`.
+    /// Every column, the phase flag included, is stored in the underlying
+    /// SimpleTable, so this class declares no data member of its own.  A
+    /// table container serializes its tables as SimpleTable and hands them
+    /// back through a cast to the derived type, so a member declared here
+    /// would be read from memory that was never allocated for it.  The flag
+    /// is exposed as the enum through `phaseFlag(row)` and `phaseFlags()`.
     ///
     /// Mole fractions on each row are checked to sum to 1, and the phase
     /// flag is checked to be either 0 or 1.
@@ -67,12 +68,13 @@ namespace Opm {
 
         /// Vapor or liquid for the given row.
         Phase phaseFlag(std::size_t rowIdx) const;
-        const std::vector<Phase>& phaseFlags() const { return phaseFlags_; }
+        std::vector<Phase> phaseFlags() const;
 
-        int numComponents() const { return static_cast<int>(SimpleTable::numColumns()) - 2; }
+        int numComponents() const { return static_cast<int>(SimpleTable::numColumns()) - 3; }
 
     private:
-        std::vector<Phase> phaseFlags_;
+        /// The column holding the phase flags, as the raw 0 or 1 of the deck.
+        const TableColumn& phaseColumn() const;
     };
 
 }

@@ -1890,6 +1890,57 @@ BOOST_AUTO_TEST_CASE(TestKeywordActionEnumLoop) {
 
 /*****************************************************************/
 
+BOOST_AUTO_TEST_CASE(ParseNestedSimulatorSkipBlocks)
+{
+    Parser parser;
+    for (const auto* name : {"E300A", "E300B", "E100A", "E100B", "INNERA", "INNERB",
+                             "STILL", "COMMON"}) {
+        parser.addParserKeyword(createFixedSized(name, 0));
+    }
+
+    const auto* input = R"(RUNSPEC
+SKIP100
+E300A
+SKIP300
+INNERA
+ENDSKIP
+E300B
+ENDSKIP
+SKIP300
+E100A
+SKIP100
+INNERB
+ENDSKIP
+E100B
+ENDSKIP
+SKIP
+SKIP100
+INNERA
+ENDSKIP
+STILL
+ENDSKIP
+COMMON
+)";
+
+    for (const auto* mode : {"100", "300", "all"}) {
+        ParseContext context;
+        context.setInputSkipMode(mode);
+        const auto deck = parser.parseString(input, context);
+        const bool e100 = std::string(mode) == "100";
+        const bool e300 = std::string(mode) == "300";
+
+        BOOST_CHECK_EQUAL(deck.hasKeyword("E100A"), e100);
+        BOOST_CHECK_EQUAL(deck.hasKeyword("E100B"), e100);
+        BOOST_CHECK_EQUAL(deck.hasKeyword("E300A"), e300);
+        BOOST_CHECK_EQUAL(deck.hasKeyword("E300B"), e300);
+        BOOST_CHECK(deck.hasKeyword("COMMON"));
+        BOOST_CHECK(!deck.hasKeyword("INNERA"));
+        BOOST_CHECK(!deck.hasKeyword("INNERB"));
+        BOOST_CHECK(!deck.hasKeyword("STILL"));
+    }
+}
+
+
 BOOST_AUTO_TEST_CASE(ParseUnitConventions)
 {
     const auto* deck_string = R"(

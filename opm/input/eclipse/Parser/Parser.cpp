@@ -508,6 +508,11 @@ class ParserState {
         bool isRestartedRun() const { return this->is_restarted_; }
         Ecl::SectionType currentSection() const { return this->current_section_; }
 
+        void beginSkip(const bool active) { this->skip_stack_.push_back(active); }
+        void endSkip() { if (!this->skip_stack_.empty()) this->skip_stack_.pop_back(); }
+        bool isSkipping() const
+        { return std::ranges::find(this->skip_stack_, true) != this->skip_stack_.end(); }
+
         void handleRandomText(const std::string_view& ) const;
         std::optional<std::filesystem::path> getIncludeFilePath( std::string ) const;
         void addPathAlias( const std::string& alias, const std::string& path );
@@ -532,6 +537,7 @@ class ParserState {
 
         bool is_restarted_{false};
         Ecl::SectionType current_section_{Ecl::SectionType::RUNSPEC};
+        std::vector<bool> skip_stack_{};
 
     public:
         ParserKeywordSizeEnum lastSizeType = SLASH_TERMINATED;
@@ -1049,7 +1055,6 @@ newRawKeyword(const std::string&      deck_name,
 
 std::unique_ptr<RawKeyword> tryParseKeyword( ParserState& parserState, const Parser& parser) {
     bool is_title = false;
-    bool skip = false;
     std::unique_ptr<RawKeyword> rawKeyword;
     std::string_view record_buffer(str::emptystr);
     std::optional<ParserKeyword> parserKeyword;
@@ -1062,6 +1067,40 @@ std::unique_ptr<RawKeyword> tryParseKeyword( ParserState& parserState, const Par
 
         const auto deck_name = str::make_deck_name(line);
 
+        // Count all skip openers, including inactive ones, so each ENDSKIP
+        // closes the matching block.  Do not interpret keyword data as a
+        // skip directive unless we are already skipping input.
+        if (!rawKeyword || parserState.isSkipping()) {
+            const bool is_skip_keyword = deck_name == "SKIP" || deck_name == "SKIP100" ||
+                                         deck_name == "SKIP300";
+            if (is_skip_keyword) {
+                const bool active = parserState.parseContext.isActiveSkipKeyword(deck_name);
+                parserState.beginSkip(active);
+                if (active) {
+                    const auto msg = fmt::format("{:5} Reading {:<8} in {} line {} \n"
+                                                 "      ... ignoring everything until 'ENDSKIP' ... ",
+                                                 "", deck_name, parserState.current_path().string(),
+                                                 parserState.line());
+                    if (!silent) {
+                        OpmLog::info(msg);
+                    } else {
+                        OpmLog::debug(msg, Parser::SILENT_MODE_MIN_DEBUG_VERBOSITY_LEVEL);
+                    }
+                }
+            } else if (deck_name == "ENDSKIP") {
+                parserState.endSkip();
+                const auto msg = fmt::format("{:5} Reading {:<8} in {} line {}", "", "ENDSKIP",
+                                             parserState.current_path().string(), parserState.line());
+                if (!silent) {
+                    OpmLog::info(msg);
+                } else {
+                    OpmLog::debug(msg, Parser::SILENT_MODE_MIN_DEBUG_VERBOSITY_LEVEL);
+                }
+                continue;
+            }
+            if (parserState.isSkipping()) continue;
+        }
+
         if (isRestartKeyword(deck_name)) {
             parserState.setRestartedRun();
         }
@@ -1069,26 +1108,6 @@ std::unique_ptr<RawKeyword> tryParseKeyword( ParserState& parserState, const Par
         if (const auto sect = sectionKeyword(deck_name); sect.has_value()) {
             parserState.setCurrentSection(*sect);
         }
-
-        if (parserState.parseContext.isActiveSkipKeyword(deck_name)) {
-            skip = true;
-            auto msg = fmt::format("{:5} Reading {:<8} in {} line {} \n      ... ignoring everything until 'ENDSKIP' ... ", "", "SKIP", parserState.current_path().string(), parserState.line());
-            if (!silent) {
-                OpmLog::info(msg);
-            } else {
-                OpmLog::debug(msg, Parser::SILENT_MODE_MIN_DEBUG_VERBOSITY_LEVEL);
-            }
-        } else if (deck_name == "ENDSKIP") {
-            skip = false;
-            auto msg = fmt::format("{:5} Reading {:<8} in {} line {}", "", "ENDSKIP", parserState.current_path().string(), parserState.line());
-            if (!silent) {
-                OpmLog::info(msg);
-            } else {
-                OpmLog::debug(msg, Parser::SILENT_MODE_MIN_DEBUG_VERBOSITY_LEVEL);
-            }
-            continue;
-        }
-        if (skip) continue;
 
         if( !rawKeyword ) {
             /*

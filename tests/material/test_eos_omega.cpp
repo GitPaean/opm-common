@@ -57,10 +57,12 @@ using PR = Opm::PRParams<Scalar, FluidSystem>;
 constexpr Scalar pressure = 150e5;
 constexpr Scalar temperature = 380.0;
 
-// Initializes the fluid system from a three-component Peng-Robinson deck
-// with the given OMEGAA and OMEGAB input, and returns its EoS parameters.
-EosParams
-parametersFromDeck(const std::string& omegaKeywords)
+using SurfaceFluidSystem = FluidSystem::SurfaceFluidSystem;
+
+// Initializes both fluid systems from a three-component Peng-Robinson deck
+// with the given EoS-constant keywords.
+void
+initFromDeck(const std::string& keywords)
 {
     const auto deck = Opm::Parser {}.parseString(R"(
 RUNSPEC
@@ -96,7 +98,7 @@ MW
  16.043 142.285 44.010 /
 ACF
  0.008 0.4885 0.225 /
-)" + omegaKeywords + R"(
+)" + keywords + R"(
 SOLUTION
 SCHEDULE
 END
@@ -104,7 +106,14 @@ END
     const auto eclState = Opm::EclipseState {deck};
     const auto schedule = Opm::Schedule {deck, eclState};
     FluidSystem::initFromState(eclState, schedule);
+    SurfaceFluidSystem::initFromState(eclState, schedule);
+}
 
+// The EoS parameters of the reservoir fluid system after initFromDeck().
+EosParams
+parametersFromDeck(const std::string& omegaKeywords)
+{
+    initFromDeck(omegaKeywords);
     EosParams params;
     params.setEOSType(Opm::CompositionalConfig::EOSType::PR);
     params.updatePure(temperature, pressure);
@@ -148,6 +157,56 @@ BOOST_AUTO_TEST_CASE(DefaultOmegasKeepTheEquationConstants)
             BOOST_CHECK_EQUAL(params.Ai(compIdx),
                               PR::calcOmegaA(temperature, compIdx, false) * pr / (Tr * Tr));
             BOOST_CHECK_EQUAL(params.Bi(compIdx), PR::calcOmegaB() * pr / Tr);
+        }
+    }
+}
+
+// The surface fluid system takes EOSS and the keywords ending in S, and the
+// reservoir one keeps its own values.
+BOOST_AUTO_TEST_CASE(SurfaceFluidSystemTakesSurfaceKeywords)
+{
+    initFromDeck("OMEGAA\n 0.44 0.46 0.45724 /\n"
+                 "OMEGAAS\n 0.45 0.45 0.45 /\n"
+                 "OMEGABS\n 0.07 0.07 0.07 /\n"
+                 "PCRITS\n 46.5 21.5 74.0 /\n");
+    const std::array<Scalar, 3> omegaA {0.44, 0.46, 0.45724};
+    const std::array<Scalar, 3> pcrit {46.0e5, 21.1e5, 73.8e5};
+    const std::array<Scalar, 3> pcritSurface {46.5e5, 21.5e5, 74.0e5};
+    for (unsigned compIdx = 0; compIdx < 3; ++compIdx) {
+        BOOST_TEST_CONTEXT("component " << compIdx)
+        {
+            BOOST_CHECK_EQUAL(FluidSystem::omegaA(compIdx).value(), omegaA[compIdx]);
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::omegaA(compIdx).value(), 0.45);
+            BOOST_CHECK_EQUAL(FluidSystem::omegaB(compIdx).value(), PR::calcOmegaB());
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::omegaB(compIdx).value(), 0.07);
+            BOOST_CHECK_CLOSE(FluidSystem::criticalPressure(compIdx), pcrit[compIdx], 1e-12);
+            BOOST_CHECK_CLOSE(
+                SurfaceFluidSystem::criticalPressure(compIdx), pcritSurface[compIdx], 1e-12);
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::criticalTemperature(compIdx),
+                              FluidSystem::criticalTemperature(compIdx));
+        }
+    }
+}
+
+// Without surface keywords the surface fluid system is the reservoir one.
+BOOST_AUTO_TEST_CASE(SurfaceFluidSystemInheritsReservoirKeywords)
+{
+    initFromDeck("OMEGAA\n 0.44 0.46 0.45724 /\n");
+    for (unsigned compIdx = 0; compIdx < 3; ++compIdx) {
+        BOOST_TEST_CONTEXT("component " << compIdx)
+        {
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::omegaA(compIdx).value(),
+                              FluidSystem::omegaA(compIdx).value());
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::omegaB(compIdx).value(),
+                              FluidSystem::omegaB(compIdx).value());
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::criticalPressure(compIdx),
+                              FluidSystem::criticalPressure(compIdx));
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::criticalTemperature(compIdx),
+                              FluidSystem::criticalTemperature(compIdx));
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::acentricFactor(compIdx),
+                              FluidSystem::acentricFactor(compIdx));
+            BOOST_CHECK_EQUAL(SurfaceFluidSystem::molarMass(compIdx),
+                              FluidSystem::molarMass(compIdx));
         }
     }
 }

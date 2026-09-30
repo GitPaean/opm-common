@@ -473,8 +473,10 @@ ScheduleState ScheduleState::serializationTestObject() {
     ts.satelliteProduction.update(GSatProd::serializationTestObject());
     ts.satelliteInjection.update(GroupSatelliteInjection::serializationTestObject());
 
+    ts.inj_streams.update("STR1",
+        std::make_shared<InjectionStream>(InjectionStream::serializationTestObject()));
     ts.group_gas_inj_streams.update("G1",
-        std::make_shared<std::vector<double>>(std::vector<double>{0.7, 0.2, 0.1}));
+        std::make_shared<InjectionStream>(InjectionStream::serializationTestObject()));
 
     return ts;
 }

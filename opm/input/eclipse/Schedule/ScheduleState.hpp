@@ -31,6 +31,7 @@
 #include <opm/input/eclipse/Schedule/Events.hpp>
 #include <opm/input/eclipse/Schedule/GasPlantTable.hpp>
 #include <opm/input/eclipse/Schedule/Group/Group.hpp>
+#include <opm/input/eclipse/Schedule/InjectionStream.hpp>
 #include <opm/input/eclipse/Schedule/MessageLimits.hpp>
 #include <opm/input/eclipse/Schedule/OilVaporizationProperties.hpp>
 #include <opm/input/eclipse/Schedule/RSTConfig.hpp>
@@ -662,10 +663,10 @@ namespace Opm {
         std::unordered_map<int, SingleAquiferFlux> aqufluxs;
         BCState bcstate;
         // injection streams for compositional STREAM injection using WINJGAS, WINJOIL and GINJGAS
-        map_member<std::string, std::vector<double>> inj_streams;
+        map_member<std::string, InjectionStream> inj_streams;
         // GINJGAS streams keyed by group name.  A group without one injects
         // the gas of a superior group.
-        map_member<std::string, std::vector<double>> group_gas_inj_streams;
+        map_member<std::string, InjectionStream> group_gas_inj_streams;
 
         std::unordered_map<std::string, double> target_wellpi;
         std::optional<NextStep> next_tstep;

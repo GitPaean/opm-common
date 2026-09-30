@@ -34,6 +34,7 @@
 #include <opm/input/eclipse/Schedule/Group/GroupSatelliteInjection.hpp>
 #include <opm/input/eclipse/Schedule/Group/GSatProd.hpp>
 #include <opm/input/eclipse/Schedule/Group/GuideRateConfig.hpp>
+#include <opm/input/eclipse/Schedule/InjectionStream.hpp>
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
 #include <opm/input/eclipse/Schedule/Network/Node.hpp>
 #include <opm/input/eclipse/Schedule/ScheduleState.hpp>
@@ -650,7 +651,7 @@ void handleGINJGAS(HandlerContext& handlerContext)
         // GRUP leaves the group without a stream of its own, so that it
         // injects the gas of a superior group.
         const std::string fluid_nature = record.getItem<Kw::FLUID>().getTrimmedString(0);
-        auto stream = std::optional<std::vector<double>>{};
+        auto stream = std::optional<InjectionStream>{};
         if (fluid_nature.starts_with("ST")) {
             const auto& stream_item = record.getItem<Kw::STREAM>();
             if (!stream_item.hasValue(0) || stream_item.defaultApplied(0)) {
@@ -679,7 +680,7 @@ void handleGINJGAS(HandlerContext& handlerContext)
         for (const auto& group_name : group_names) {
             // A copy per group, so that no two groups share a stream object.
             if (stream.has_value()) {
-                group_streams.update(group_name, std::make_shared<std::vector<double>>(*stream));
+                group_streams.update(group_name, std::make_shared<InjectionStream>(*stream));
             }
             else {
                 group_streams.erase(group_name);

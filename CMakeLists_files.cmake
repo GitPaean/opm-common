@@ -196,6 +196,7 @@ list(APPEND MAIN_SOURCE_FILES
   opm/input/eclipse/Schedule/GasLiftOptKeywordHandlers.cpp
   opm/input/eclipse/Schedule/GasPlantTable.cpp
   opm/input/eclipse/Schedule/HandlerContext.cpp
+  opm/input/eclipse/Schedule/InjectionStream.cpp
   opm/input/eclipse/Schedule/KeywordHandlers.cpp
   opm/input/eclipse/Schedule/MessageLimits.cpp
   opm/input/eclipse/Schedule/MixingRateControlKeywordHandlers.cpp
@@ -745,7 +746,7 @@ list(APPEND TEST_DATA_FILES
   tests/BASE_SIM.DATA
   tests/BASE_SIM_THPRES.DATA
   tests/NORST_SIM.DATA
-  tests/NORST1_SIM.DATA  
+  tests/NORST1_SIM.DATA
   tests/CARFIN-COLUMN.EGRID
   tests/CARFIN-DOUBLE.EGRID
   tests/CARFIN-NESTED.EGRID
@@ -1174,6 +1175,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/input/eclipse/Schedule/Group/GuideRate.hpp
   opm/input/eclipse/Schedule/Group/GuideRateConfig.hpp
   opm/input/eclipse/Schedule/Group/GuideRateModel.hpp
+  opm/input/eclipse/Schedule/InjectionStream.hpp
   opm/input/eclipse/Schedule/MSW/AICD.hpp
   opm/input/eclipse/Schedule/MSW/SICD.hpp
   opm/input/eclipse/Schedule/MSW/Segment.hpp

@@ -110,6 +110,7 @@
 #include <opm/input/eclipse/Schedule/Group/GroupSatelliteInjection.hpp>
 #include <opm/input/eclipse/Schedule/Group/GuideRateConfig.hpp>
 #include <opm/input/eclipse/Schedule/Group/GuideRateModel.hpp>
+#include <opm/input/eclipse/Schedule/InjectionStream.hpp>
 #include <opm/input/eclipse/Schedule/MSW/AICD.hpp>
 #include <opm/input/eclipse/Schedule/MSW/SICD.hpp>
 #include <opm/input/eclipse/Schedule/MSW/Valve.hpp>
@@ -334,6 +335,7 @@ TEST_FOR_TYPE_NAMED(Group::GroupProductionProperties, GroupProductionProperties)
 TEST_FOR_TYPE(GuideRateConfig)
 TEST_FOR_TYPE(GuideRateModel)
 TEST_FOR_TYPE(InitConfig)
+TEST_FOR_TYPE(InjectionStream)
 TEST_FOR_TYPE(IOConfig)
 TEST_FOR_TYPE(IonExchangeConfig)
 TEST_FOR_TYPE(JFunc)

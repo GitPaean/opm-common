@@ -26,6 +26,7 @@
 #include <opm/input/eclipse/EclipseState/Compositional/NormalizeMoleFractions.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/EclipseGrid.hpp>
 
+#include <opm/input/eclipse/Schedule/InjectionStream.hpp>
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
 #include <opm/input/eclipse/Schedule/ScheduleGrid.hpp>
 #include <opm/input/eclipse/Schedule/ScheduleState.hpp>
@@ -528,8 +529,7 @@ void handleWELLSTRE(HandlerContext& handlerContext)
             warnNormalizedMoleFractions(what, *sum, 0, handlerContext.keyword.location());
         }
 
-        auto composition_ptr = std::make_shared<std::vector<double>>(std::move(composition));
-        inj_streams.update(stream_name, std::move(composition_ptr));
+        inj_streams.update(stream_name, std::make_shared<InjectionStream>(std::move(composition)));
     }
 
 }
@@ -656,7 +656,7 @@ void setInjectionStream(HandlerContext& handlerContext,
         throw OpmInputError(msg, handlerContext.keyword.location());
     }
 
-    const auto& composition = inj_streams.get(stream_name);
+    const auto& composition = inj_streams.get(stream_name).moleFractions();
     for (const auto& well_name : handlerContext.wellNames(wellNamePattern, false)) {
         auto well = handlerContext.state().wells.get(well_name);
         auto injection

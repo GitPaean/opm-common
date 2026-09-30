@@ -5360,7 +5360,7 @@ WELLSTRE
 /
 )"));
 
-    const auto& composition = sched[0].inj_streams("STR1");
+    const auto& composition = sched[0].inj_streams("STR1").moleFractions();
     BOOST_REQUIRE_EQUAL(composition.size(), std::size_t{3});
     BOOST_CHECK_CLOSE(composition[0], 0.25, 1.0e-10);
     BOOST_CHECK_CLOSE(composition[1], 0.75, 1.0e-10);
@@ -5382,13 +5382,13 @@ WELLSTRE
 /
 )"));
 
-    const auto& str1 = sched[0].inj_streams("STR1");
+    const auto& str1 = sched[0].inj_streams("STR1").moleFractions();
     BOOST_REQUIRE_EQUAL(str1.size(), std::size_t{3});
     BOOST_CHECK_CLOSE(str1[0], 0.25, 1.0e-10);
     BOOST_CHECK_EQUAL(str1[1], 0.0);
     BOOST_CHECK_CLOSE(str1[2], 0.75, 1.0e-10);
 
-    const auto& str2 = sched[0].inj_streams("STR2");
+    const auto& str2 = sched[0].inj_streams("STR2").moleFractions();
     BOOST_REQUIRE_EQUAL(str2.size(), std::size_t{3});
     BOOST_CHECK_CLOSE(str2[0], 1.0, 1.0e-10);
     BOOST_CHECK_EQUAL(str2[1], 0.0);
@@ -6107,12 +6107,12 @@ TSTEP
     const auto& streams = sched[0].group_gas_inj_streams;
     for (const auto* group : { "GI1", "GI2" }) {
         BOOST_REQUIRE(streams.has(group));
-        BOOST_CHECK_CLOSE(streams.get(group)[0], 0.8, 1.0e-10);
+        BOOST_CHECK_CLOSE(streams.get(group).moleFractions()[0], 0.8, 1.0e-10);
     }
     BOOST_CHECK(streams.get_ptr("GI1") != streams.get_ptr("GI2"));
     BOOST_CHECK(streams.get_ptr("GI1") != sched[0].inj_streams.get_ptr("GAS1"));
     BOOST_REQUIRE(streams.has("FIELD"));
-    BOOST_CHECK_CLOSE(streams.get("FIELD")[0], 0.7, 1.0e-10);
+    BOOST_CHECK_CLOSE(streams.get("FIELD").moleFractions()[0], 0.7, 1.0e-10);
 
     // A group without a stream of its own injects the gas of a superior group.
     BOOST_CHECK(!streams.has("INJ"));
@@ -6120,7 +6120,7 @@ TSTEP
     // The default fluid nature GRUP removes the stream of GI2 only.
     const auto& next_streams = sched[1].group_gas_inj_streams;
     BOOST_REQUIRE(next_streams.has("GI1"));
-    BOOST_CHECK_CLOSE(next_streams.get("GI1")[0], 0.8, 1.0e-10);
+    BOOST_CHECK_CLOSE(next_streams.get("GI1").moleFractions()[0], 0.8, 1.0e-10);
     BOOST_CHECK(!next_streams.has("GI2"));
 }
 

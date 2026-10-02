@@ -22,4 +22,14 @@ if(TARGET opmcommon)
   if(opm-common_LIBS MATCHES OpenMP::OpenMP)
     find_package(OpenMP REQUIRED)
   endif()
+
+  # Present when opm-common was built with OPM_LINK_MPI_DIRECTLY (UseMPI.cmake):
+  # the imported target is in the exported link interface, so a consumer
+  # that has not looked for MPI itself would otherwise fail at generation.
+  # The C component: a consumer of this package has enabled C, as
+  # OpenMP::OpenMP_C in the same exported interface already requires
+  # (UseOpenMP.cmake links it publicly whenever OpenMP is used).
+  if(opm-common_LIBS MATCHES "MPI::MPI_C")
+    find_package(MPI REQUIRED COMPONENTS C)
+  endif()
 endif()

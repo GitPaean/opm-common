@@ -47,6 +47,13 @@
 #include <utility>
 #include <vector>
 
+// See captureHysteresisState_() in Manager below.
+#if defined(_MSC_VER) && !defined(__clang__)
+#define OPM_HYSTERESIS_SNAPSHOT_NOINLINE __declspec(noinline)
+#else
+#define OPM_HYSTERESIS_SNAPSHOT_NOINLINE
+#endif
+
 namespace Opm {
 
 class EclipseState;
@@ -505,6 +512,13 @@ private:
 
     // Snapshot of one set of material law parameters: the cell parameters,
     // or one direction of the directional ones.
+    //
+    // Out of line on MSVC: 19.51 (VS 2026) miscompiled the snapshot when this
+    // loop was written out in captureBeginTimeStepState() itself. On the
+    // three-phase path the function returned without restoring the caller's
+    // rbx and rsi, and without capturing the directional states, so the caller
+    // continued with the cell count where its 'this' pointer had been.
+    OPM_HYSTERESIS_SNAPSHOT_NOINLINE
     void captureHysteresisState_(
         const std::vector<MaterialLawParams>& paramsVec,
         typename HysteresisStateSnapshot::PhaseStates& goVec,
@@ -543,7 +557,9 @@ private:
         }
     }
 
-    // The inverse of captureHysteresisState_().
+    // The inverse of captureHysteresisState_(), kept out of line on MSVC for
+    // the same reason.
+    OPM_HYSTERESIS_SNAPSHOT_NOINLINE
     void restoreHysteresisState_(
         std::vector<MaterialLawParams>& paramsVec,
         const typename HysteresisStateSnapshot::PhaseStates& goVec,
@@ -607,5 +623,7 @@ private:
 };
 
 } // namespace Opm::EclMaterialLaw
+
+#undef OPM_HYSTERESIS_SNAPSHOT_NOINLINE
 
 #endif

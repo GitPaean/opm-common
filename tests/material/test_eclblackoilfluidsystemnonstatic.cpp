@@ -686,7 +686,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
         Opm::Valgrind::SetUndefined(fluidState);
 
         static const Scalar eps = std::sqrt(std::numeric_limits<Scalar>::epsilon());
-        unsigned regionIdx = paramCache.regionIndex();
+        unsigned regionIdx = paramCache.pvtRegionIndex();
         for (unsigned i = 0; i < 1000; ++i) {
             Scalar p = Scalar(i) / 1000 * 350e5 + 100e5;
 

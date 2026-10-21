@@ -738,7 +738,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
     // create a parameter cache
     using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
     ParamCache paramCache(/*regionIdx=*/1);
-    BOOST_CHECK_EQUAL(paramCache.regionIndex(), 1);
+    BOOST_CHECK_EQUAL(paramCache.pvtRegionIndex(), 1);
 
     BOOST_CHECK_SMALL(Opm::abs(FluidSystem::reservoirTemperature() - (273.15 + 15.555)), 1e-10);
     BOOST_CHECK(FluidSystem::enableDissolvedGas());
@@ -764,7 +764,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
     Opm::Valgrind::SetUndefined(fluidState);
 
     static const Scalar eps = std::sqrt(std::numeric_limits<Scalar>::epsilon());
-    unsigned regionIdx = paramCache.regionIndex();
+    unsigned regionIdx = paramCache.pvtRegionIndex();
     for (unsigned i = 0; i < 1000; ++i) {
         const auto pval = Scalar(i)/1000*350e5 + 100e5;
         Evaluation p;

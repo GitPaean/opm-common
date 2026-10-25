@@ -54,6 +54,13 @@
 #include <stdexcept>
 #include <tuple>
 
+#ifdef _MSC_VER
+// MSVC has no POSIX setenv; map to _putenv_s, which always overwrites --
+// the only mode this file uses.
+static int setenv(const char* name, const char* value, int /*overwrite*/)
+{ return _putenv_s(name, value); }
+#endif
+
 using namespace Opm;
 
 BOOST_AUTO_TEST_CASE(TestUnkownKeyword) {

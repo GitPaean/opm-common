@@ -1775,7 +1775,7 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
 
         auto& state = this->snapshots[report_step];
         for (const auto& well_name : state.wells.keys()) {
-            auto well = state.wells.get(well_name);
+            const auto& well = state.wells.get(well_name);
             if (!well.isInjector() || well.injectorType() != InjectorType::GAS) {
                 continue;
             }
@@ -1805,8 +1805,9 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
                     || (has_composition
                         && injection.gasInjComposition() != new_injection->gasInjComposition());
                 has_composition = new_injection->hasGasInjComposition();
-                well.updateInjectionProperties(std::move(new_injection));
-                state.wells.update(std::move(well));
+                auto new_well = well;
+                new_well.updateInjectionProperties(std::move(new_injection));
+                state.wells.update(std::move(new_well));
                 if (composition_changed) {
                     state.events().addEvent(ScheduleEvents::INJECTION_UPDATE);
                     state.wellgroup_events().addEvent(well_name, ScheduleEvents::INJECTION_UPDATE);

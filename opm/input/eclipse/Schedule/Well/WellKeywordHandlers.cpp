@@ -673,13 +673,21 @@ using SetInjComposition = void (Well::WellInjectionProperties::*)(const std::vec
 template<class UpdateComposition>
 void updateInjectionComposition(HandlerContext& handlerContext,
                                 const std::string& wellNamePattern,
+                                const bool gas_stream,
                                 UpdateComposition updateComposition)
 {
     for (const auto& well_name : handlerContext.wellNames(wellNamePattern, false)) {
         auto well = handlerContext.state().wells.get(well_name);
+        const auto& previous = well.getInjectionProperties();
         auto injection
-            = std::make_shared<Well::WellInjectionProperties>(well.getInjectionProperties());
+            = std::make_shared<Well::WellInjectionProperties>(previous);
         updateComposition(*injection);
+        const bool gas_injector = gas_stream && well.isInjector()
+            && well.injectorType() == InjectorType::GAS;
+        const bool composition_changed = !gas_injector
+            || previous.hasGasInjComposition() != injection->hasGasInjComposition()
+            || (previous.hasGasInjComposition()
+                && previous.gasInjComposition() != injection->gasInjComposition());
 
         // The stream only matters once the well injects, so a producer stays a producer.
         if (well.updateInjectionProperties(std::move(injection))) {
@@ -687,9 +695,13 @@ void updateInjectionComposition(HandlerContext& handlerContext,
             handlerContext.state().wells.update(std::move(well));
 
             if (injector) {
-                handlerContext.state().events().addEvent(ScheduleEvents::INJECTION_UPDATE);
-                handlerContext.state().wellgroup_events()
-                    .addEvent(well_name, ScheduleEvents::INJECTION_UPDATE);
+                if (composition_changed) {
+                    handlerContext.state().events().addEvent(ScheduleEvents::INJECTION_UPDATE);
+                    handlerContext.state().wellgroup_events()
+                        .addEvent(well_name, ScheduleEvents::INJECTION_UPDATE);
+                }
+                // A change between an explicit and inherited stream still
+                // needs to reach the simulator, even if the vectors match.
                 handlerContext.affected_well(well_name);
             }
         }
@@ -721,6 +733,7 @@ void setInjectionStream(HandlerContext& handlerContext,
 
     const auto& composition = inj_streams.get(stream_name);
     updateInjectionComposition(handlerContext, wellNamePattern,
+                               setComposition == &Well::WellInjectionProperties::setGasInjComposition,
                                [&composition, setComposition](auto& injection) {
                                    std::invoke(setComposition, injection, composition);
                                });
@@ -736,7 +749,7 @@ void handleWINJGAS(HandlerContext& handlerContext)
         const auto well_name = record.getItem<Kw::WELL>().getTrimmedString(0);
 
         if (fluid_nature.starts_with("GR")) {
-            updateInjectionComposition(handlerContext, well_name, [](auto& injection) {
+            updateInjectionComposition(handlerContext, well_name, /*gas_stream=*/true, [](auto& injection) {
                 injection.clearGasInjComposition();
             });
         }

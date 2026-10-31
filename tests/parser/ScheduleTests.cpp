@@ -6365,6 +6365,76 @@ TSTEP
     }
 }
 
+BOOST_AUTO_TEST_CASE(WINJGAS_can_pin_an_inherited_stream_without_an_injection_event)
+{
+    const auto sched = make_schedule(connected_wells_deck(R"(
+WELLSTRE
+ 'CO2' 0.0 1.0 0.0 /
+ 'LEAN' 0.9 0.1 0.0 /
+/
+WELSPECS
+ 'INJ' 'G1' 1 1 2000 'GAS' /
+/
+COMPDAT
+ 'INJ' 1 1 1 1 'OPEN' 1* 1.0 0.2 /
+/
+GINJGAS
+ 'FIELD' 'STREAM' 'LEAN' /
+/
+WCONINJE
+ 'INJ' 'GAS' 'OPEN' 'RATE' 1000 /
+/
+TSTEP
+ 1 /
+WINJGAS
+ 'INJ' 'STREAM' 'LEAN' /
+/
+TSTEP
+ 1 /
+GINJGAS
+ 'FIELD' 'STREAM' 'CO2' /
+/
+TSTEP
+ 1 /
+WINJGAS
+ 'INJ' 'STREAM' 'CO2' /
+/
+TSTEP
+ 1 /
+WINJGAS
+ 'INJ' 'GRUP' /
+/
+TSTEP
+ 1 /
+GINJGAS
+ 'FIELD' 'STREAM' 'LEAN' /
+/
+TSTEP
+ 1 /
+)"));
+
+    // Pinning the current stream still takes effect: later group changes
+    // leave the well's composition alone, without an injection update.
+    for (const std::size_t step : {0, 1, 2, 5}) {
+        BOOST_CHECK_CLOSE(sched.getWell("INJ", step).getInjectionProperties().gasInjComposition()[0],
+                          0.9, 1.0e-10);
+    }
+    for (const std::size_t step : {1, 2, 4}) {
+        BOOST_CHECK(!sched[step].events().hasEvent(ScheduleEvents::Events::INJECTION_UPDATE));
+        BOOST_CHECK(!sched[step].wellgroup_events().hasEvent(
+            "INJ", ScheduleEvents::Events::INJECTION_UPDATE));
+    }
+    for (const std::size_t step : {3, 4}) {
+        BOOST_CHECK_CLOSE(sched.getWell("INJ", step).getInjectionProperties().gasInjComposition()[1],
+                          1.0, 1.0e-10);
+    }
+    for (const std::size_t step : {3, 5}) {
+        BOOST_CHECK(sched[step].events().hasEvent(ScheduleEvents::Events::INJECTION_UPDATE));
+        BOOST_CHECK(sched[step].wellgroup_events().hasEvent(
+            "INJ", ScheduleEvents::Events::INJECTION_UPDATE));
+    }
+}
+
 BOOST_AUTO_TEST_CASE(WINJGAS_can_return_to_the_group_stream)
 {
     // Both two-character abbreviations and a defaulted FLUID select GRUP.

@@ -288,17 +288,23 @@ namespace Opm {
     }
 
     bool Well::WellInjectionProperties::operator==(const Well::WellInjectionProperties& other) const {
-        if ((surfaceInjectionRate == other.surfaceInjectionRate)
-            && (reservoirInjectionRate == other.reservoirInjectionRate)
-            && (BHPTarget == other.BHPTarget) && (THPTarget == other.THPTarget)
-            && (BHPH == other.BHPH) && (THPH == other.THPH)
-            && (bhp_hist_limit == other.bhp_hist_limit) && (thp_hist_limit == other.thp_hist_limit)
-            && (VFPTableNumber == other.VFPTableNumber) && (predictionMode == other.predictionMode)
-            && (injectionControls == other.injectionControls)
-            && (injectorType == other.injectorType) && (controlMode == other.controlMode)
-            && (rsRvInj == other.rsRvInj) && (gas_inj_composition == other.gas_inj_composition)
-            && (oil_inj_composition == other.oil_inj_composition)
-            && (group_gas_inj_composition == other.group_gas_inj_composition))
+        if ((surfaceInjectionRate == other.surfaceInjectionRate) &&
+            (reservoirInjectionRate == other.reservoirInjectionRate) &&
+            (BHPTarget == other.BHPTarget) &&
+            (THPTarget == other.THPTarget) &&
+            (BHPH == other.BHPH) &&
+            (THPH == other.THPH) &&
+            (bhp_hist_limit == other.bhp_hist_limit) &&
+            (thp_hist_limit == other.thp_hist_limit) &&
+            (VFPTableNumber == other.VFPTableNumber) &&
+            (predictionMode == other.predictionMode) &&
+            (injectionControls == other.injectionControls) &&
+            (injectorType == other.injectorType) &&
+            (controlMode == other.controlMode) &&
+            (rsRvInj == other.rsRvInj) &&
+            (gas_inj_composition == other.gas_inj_composition) &&
+            (oil_inj_composition == other.oil_inj_composition) &&
+            (group_gas_inj_composition == other.group_gas_inj_composition))
             return true;
         else
             return false;

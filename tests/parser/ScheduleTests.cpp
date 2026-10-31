@@ -6476,7 +6476,19 @@ TSTEP
     };
 
     BOOST_CHECK_EXCEPTION(make_schedule(deck("OPEN")), std::exception, [](const std::exception& e) {
-        return std::string {e.what()}.find("INJ has no stream to inject") != std::string::npos;
+        return std::string_view{e.what()}.find(
+            "INJ has no stream to inject at report step 0 (2020-01-01)") != std::string_view::npos;
+    });
+
+    const auto reopened = deck("SHUT") + R"(WCONINJE
+ 'INJ' 'GAS' 'OPEN' 'RATE' 1000 /
+/
+TSTEP
+ 1 /
+)";
+    BOOST_CHECK_EXCEPTION(make_schedule(reopened), std::exception, [](const std::exception& e) {
+        return std::string_view{e.what()}.find(
+            "INJ has no stream to inject at report step 1 (2020-01-02)") != std::string_view::npos;
     });
 
     // A shut injector is left alone until it opens.

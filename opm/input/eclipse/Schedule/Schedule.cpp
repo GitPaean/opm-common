@@ -1815,9 +1815,10 @@ File {} line {}.)", pattern, location.keyword, location.filename, location.linen
 
             if (open && !has_composition) {
                 throw std::invalid_argument {
-                    fmt::format("Gas injector {} has no stream to inject. Assign one with "
+                    fmt::format("Gas injector {} has no stream to inject at report step {} ({}). "
+                                "Assign one with "
                                 "WINJGAS, or with GINJGAS for one of its groups.",
-                                well_name)};
+                                well_name, report_step, Schedule::formatDate(state.start_time()))};
             }
         }
     }

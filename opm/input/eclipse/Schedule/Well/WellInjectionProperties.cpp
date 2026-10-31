@@ -533,6 +533,12 @@ namespace Opm {
     }
 
     void
+    Well::WellInjectionProperties::clearGasInjComposition()
+    {
+        gas_inj_composition.reset();
+    }
+
+    void
     Well::WellInjectionProperties::setGroupGasInjComposition(
         const std::optional<std::vector<double>>& composition)
     {

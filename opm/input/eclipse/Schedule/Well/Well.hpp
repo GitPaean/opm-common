@@ -248,6 +248,7 @@ public:
         void handleWTMULT(Well::WELTARGCMode cmode, double factor);
 
         void setGasInjComposition(const std::vector<double>& composition);
+        void clearGasInjComposition();
         void setGroupGasInjComposition(const std::optional<std::vector<double>>& composition);
         const std::optional<std::vector<double>>& groupGasInjComposition() const;
         //! The well's own stream, or else the one of its nearest group.

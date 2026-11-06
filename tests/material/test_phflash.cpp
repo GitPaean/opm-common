@@ -123,12 +123,18 @@ double enthalpyF1(const double pressure, const double temperature, const Enthalp
                                        EOSType::PR, model);
 }
 
+// The search with and without the Newton stage. The tests of the bracket
+// search describe it without; with it, the same case is solved by the Newton
+// stage or met by the bracket search after the Newton stage hands over.
+constexpr std::array<bool, 2> newtonStarts = {false, true};
+
 template <class Flash>
 double recoverTemperatureF1(const double pressure, const double hSpec,
                             const typename Flash::Config& cfg,
-                            const std::array<double, 2>& z = f1Z)
+                            const std::array<double, 2>& z = f1Z,
+                            const double startTemperature = f1Temperature)
 {
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(pressure, f1Temperature, z);
+    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(pressure, startTemperature, z);
     const bool ok = Flash::solve(fs, hSpec, cfg, PTFlashMethod::Ssi, ptTolerance, EOSType::PR);
     BOOST_REQUIRE_MESSAGE(ok, "PHFlash found no solution for hSpec = " << hSpec);
     return Opm::getValue(fs.temperature(0));
@@ -177,8 +183,8 @@ struct EnthalpyUpTo420KF1
 };
 
 // An enthalpy provider that cannot evaluate its calls firstFailure to
-// lastFailure (counted from 1). The two ends of the interval are calls 1 and
-// 2, so call 3 is the first interior trial.
+// lastFailure (counted from 1). In the bracket search alone, the two ends of
+// the interval are calls 1 and 2, so call 3 is the first interior trial.
 struct EnthalpyFailingCallsF1
 {
     static inline int calls = 0;
@@ -217,16 +223,51 @@ struct EnthalpyStepAt350KF1
 };
 
 // The built-in enthalpy as a replacement provider: the search then flashes
-// at every trial, also with the caloric model.
+// at every trial, also with the caloric model. It counts its calls.
 struct PassThroughEnthalpyF1
 {
+    static inline int calls = 0;
+
     template <class FluidState>
     static Scalar mixtureEnthalpy(const FluidState& fs,
                                   const Opm::CpTable<Scalar, numComponentsF1>& cpTable,
                                   const EOSType& eosType,
                                   const EnthalpyModel model)
     {
+        ++calls;
         return EnthalpyF1::mixtureEnthalpy(fs, cpTable, eosType, model);
+    }
+};
+
+// An enthalpy provider H(T) = 1e-6 T^4 [J/mol], convex, so that a Newton step
+// from below the root overshoots it. It cannot evaluate from 400.005 to
+// 400.05 K, just above the root at 400 K, and records the temperatures it is
+// evaluated at.
+struct QuarticEnthalpyF1
+{
+    static constexpr double failingFrom = 400.005;
+    static constexpr double failingTo = 400.05;
+    static inline double lowest = std::numeric_limits<double>::max();
+    static inline double highest = std::numeric_limits<double>::lowest();
+
+    static double enthalpy(const double T)
+    {
+        return 1e-6 * T * T * T * T;
+    }
+
+    template <class FluidState>
+    static Scalar mixtureEnthalpy(const FluidState& fs,
+                                  const Opm::CpTable<Scalar, numComponentsF1>&,
+                                  const EOSType&,
+                                  const EnthalpyModel)
+    {
+        const double T = Opm::getValue(fs.temperature(0));
+        lowest = std::min(lowest, T);
+        highest = std::max(highest, T);
+        if (T > failingFrom && T < failingTo) {
+            throw std::runtime_error("no enthalpy in this range");
+        }
+        return enthalpy(T);
     }
 };
 
@@ -335,9 +376,14 @@ BOOST_AUTO_TEST_CASE(DenseSweepF1)
         const double Tstar = Tlo + i * (Thi - Tlo) / (numPoints - 1);
         for (const auto model : {EnthalpyModel::caloric, EnthalpyModel::eos_departure}) {
             const double hSpec = enthalpyF1(f1Pressure, Tstar, model);
-            const double T = recoverTemperatureF1(f1Pressure, hSpec, model);
-            BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
-                                "expected " << Tstar << " K, recovered " << T << " K");
+            auto cfg = makeConfigF1(model);
+            for (const bool newtonStart : newtonStarts) {
+                cfg.newtonStart = newtonStart;
+                const double T = recoverTemperatureF1<PhFlashF1>(f1Pressure, hSpec, cfg);
+                BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
+                                    "newtonStart " << newtonStart << ": expected " << Tstar
+                                    << " K, recovered " << T << " K");
+            }
         }
     }
 }
@@ -389,6 +435,8 @@ BOOST_AUTO_TEST_CASE(StaysInsideCpFitRange)
 {
     // The interval asked for is wider than the 250-600 K fit range of the
     // C1 and nC10 polynomials; no trial may leave the fit range.
+    // The Newton stage starts from inside the interval, from below it and
+    // from above it.
     using Flash = Opm::PHFlash<Scalar, FluidSystemF1, RecordingEnthalpyF1>;
     auto cfg = makeConfigF1(EnthalpyModel::caloric);
     cfg.tempMin = 150.;
@@ -396,11 +444,20 @@ BOOST_AUTO_TEST_CASE(StaysInsideCpFitRange)
 
     constexpr double Tstar = 300.;
     const double hSpec = enthalpyF1(f1Pressure, Tstar, EnthalpyModel::caloric);
-    const double T = recoverTemperatureF1<Flash>(f1Pressure, hSpec, cfg);
+    for (const bool newtonStart : newtonStarts) {
+        for (const double start : {f1Temperature, 100., 900.}) {
+            BOOST_TEST_CONTEXT("newtonStart " << newtonStart << ", start " << start << " K") {
+                cfg.newtonStart = newtonStart;
+                RecordingEnthalpyF1::lowest = std::numeric_limits<double>::max();
+                RecordingEnthalpyF1::highest = std::numeric_limits<double>::lowest();
+                const double T = recoverTemperatureF1<Flash>(f1Pressure, hSpec, cfg, f1Z, start);
 
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
-    BOOST_CHECK_GE(RecordingEnthalpyF1::lowest, 250.);
-    BOOST_CHECK_LE(RecordingEnthalpyF1::highest, 600.);
+                BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+                BOOST_CHECK_GE(RecordingEnthalpyF1::lowest, 250.);
+                BOOST_CHECK_LE(RecordingEnthalpyF1::highest, 600.);
+            }
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(OutsideCpFitRangeReturnsFalse)
@@ -423,11 +480,16 @@ BOOST_AUTO_TEST_CASE(UnpopulatedCpTableReturnsFalse)
 
 BOOST_AUTO_TEST_CASE(EnthalpyAboveRangeReturnsFalse)
 {
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
     const double hAboveMax = enthalpyF1(f1Pressure, cfg.tempMax, EnthalpyModel::caloric) + 1e6;
 
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-    BOOST_CHECK(!PhFlashF1::solve(fs, hAboveMax, cfg, PTFlashMethod::Ssi, ptTolerance, EOSType::PR));
+    for (const bool newtonStart : newtonStarts) {
+        cfg.newtonStart = newtonStart;
+        auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+        BOOST_CHECK_MESSAGE(!PhFlashF1::solve(fs, hAboveMax, cfg, PTFlashMethod::Ssi,
+                                              ptTolerance, EOSType::PR),
+                            "newtonStart " << newtonStart);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -446,8 +508,13 @@ BOOST_AUTO_TEST_CASE(RecoversInteriorRoot)
 
     constexpr double Tstar = 300.;
     const double hSpec = enthalpyF1(f1Pressure, Tstar, EnthalpyModel::caloric);
-    const double T = recoverTemperatureF1<FlashUpTo420K>(f1Pressure, hSpec, cfg);
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<FlashUpTo420K>(f1Pressure, hSpec, cfg);
+            BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(RootBeyondEvaluableRangeReturnsFalse)
@@ -459,8 +526,13 @@ BOOST_AUTO_TEST_CASE(RootBeyondEvaluableRangeReturnsFalse)
     cfg.cpTable = Opm::FlashTest::f1CpTable();
     const double hSpec = enthalpyF1(f1Pressure, 440., EnthalpyModel::caloric);
 
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-    BOOST_CHECK(!FlashUpTo420K::solve(fs, hSpec, cfg, PTFlashMethod::Ssi, ptTolerance, EOSType::PR));
+    for (const bool newtonStart : newtonStarts) {
+        cfg.newtonStart = newtonStart;
+        auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+        BOOST_CHECK_MESSAGE(!FlashUpTo420K::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
+                                                  ptTolerance, EOSType::PR),
+                            "newtonStart " << newtonStart);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(NoEvaluableTemperatureReturnsFalse)
@@ -472,8 +544,13 @@ BOOST_AUTO_TEST_CASE(NoEvaluableTemperatureReturnsFalse)
     cfg.tempMax = 600.;
     const double hSpec = enthalpyF1(f1Pressure, 550., EnthalpyModel::caloric);
 
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-    BOOST_CHECK(!FlashUpTo420K::solve(fs, hSpec, cfg, PTFlashMethod::Ssi, ptTolerance, EOSType::PR));
+    for (const bool newtonStart : newtonStarts) {
+        cfg.newtonStart = newtonStart;
+        auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+        BOOST_CHECK_MESSAGE(!FlashUpTo420K::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
+                                                  ptTolerance, EOSType::PR),
+                            "newtonStart " << newtonStart);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(RecoversRootNextToFailingEndLeanFeed)
@@ -487,10 +564,15 @@ BOOST_AUTO_TEST_CASE(RecoversRootNextToFailingEndLeanFeed)
     for (const auto model : {EnthalpyModel::caloric, EnthalpyModel::eos_departure}) {
         cfg.model = model;
         const double hSpec = enthalpyF1(atmosphericPressure, Tstar, model, leanZ);
-        const double T = recoverTemperatureF1<PhFlashF1>(atmosphericPressure, hSpec, cfg, leanZ);
-        BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
-                            "model " << static_cast<int>(model) << ": expected " << Tstar
-                            << " K, recovered " << T << " K");
+        for (const bool newtonStart : newtonStarts) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<PhFlashF1>(atmosphericPressure, hSpec,
+                                                             cfg, leanZ);
+            BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
+                                "model " << static_cast<int>(model) << ", newtonStart "
+                                << newtonStart << ": expected " << Tstar
+                                << " K, recovered " << T << " K");
+        }
     }
 }
 
@@ -502,10 +584,15 @@ BOOST_AUTO_TEST_CASE(RecoversRootBeyondFailedMidpoint)
     constexpr std::array<double, 2> richZ = {0.9, 0.1};
     constexpr double pressure = 300e5; // [Pa]
     constexpr double Tstar = 450.;
-    const auto cfg = makeConfigF1(EnthalpyModel::eos_departure);
+    auto cfg = makeConfigF1(EnthalpyModel::eos_departure);
     const double hSpec = enthalpyF1(pressure, Tstar, EnthalpyModel::eos_departure, richZ);
-    const double T = recoverTemperatureF1<PhFlashF1>(pressure, hSpec, cfg, richZ);
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<PhFlashF1>(pressure, hSpec, cfg, richZ);
+            BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+        }
+    }
 }
 
 using FlashFrom365K = Opm::PHFlash<Scalar, FluidSystemF1, LinearEnthalpyFrom365KF1>;
@@ -519,11 +606,16 @@ BOOST_AUTO_TEST_CASE(BoundaryRootOnTrialIsAccepted)
     PhFlashF1::Config cfg;
     cfg.cpTable = Opm::FlashTest::f1CpTable();
     cfg.tempMax = 460.;
-    for (const double tempMin : {365., 270.}) {
-        cfg.tempMin = tempMin;
-        const double T = recoverTemperatureF1<FlashFrom365K>(f1Pressure,
-                                                             LinearEnthalpyFrom365KF1::limit, cfg);
-        BOOST_CHECK_SMALL(T - LinearEnthalpyFrom365KF1::limit, cfg.temperatureTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        for (const double tempMin : {365., 270.}) {
+            BOOST_TEST_CONTEXT("newtonStart " << newtonStart << ", tempMin " << tempMin) {
+                cfg.newtonStart = newtonStart;
+                cfg.tempMin = tempMin;
+                const double T = recoverTemperatureF1<FlashFrom365K>(
+                    f1Pressure, LinearEnthalpyFrom365KF1::limit, cfg);
+                BOOST_CHECK_SMALL(T - LinearEnthalpyFrom365KF1::limit, cfg.temperatureTolerance);
+            }
+        }
     }
 }
 
@@ -536,9 +628,14 @@ BOOST_AUTO_TEST_CASE(ApproachedBoundaryRootIsAccepted)
     cfg.cpTable = Opm::FlashTest::f1CpTable();
     cfg.tempMin = 270.;
     cfg.tempMax = 470.;
-    const double T = recoverTemperatureF1<FlashFrom365K>(f1Pressure,
-                                                         LinearEnthalpyFrom365KF1::limit, cfg);
-    BOOST_CHECK_SMALL(T - LinearEnthalpyFrom365KF1::limit, cfg.temperatureTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<FlashFrom365K>(
+                f1Pressure, LinearEnthalpyFrom365KF1::limit, cfg);
+            BOOST_CHECK_SMALL(T - LinearEnthalpyFrom365KF1::limit, cfg.temperatureTolerance);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(TargetBelowEvaluableRangeReturnsFalse)
@@ -551,12 +648,15 @@ BOOST_AUTO_TEST_CASE(TargetBelowEvaluableRangeReturnsFalse)
     cfg.cpTable = Opm::FlashTest::f1CpTable();
     cfg.tempMin = 270.;
     cfg.tempMax = 460.;
-    for (const double hSpec : {364.5, 364.999}) {
-        auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-        BOOST_CHECK_MESSAGE(!FlashFrom365K::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
-                                                  ptTolerance, EOSType::PR),
-                            "hSpec = " << hSpec << " accepted at "
-                            << Opm::getValue(fs.temperature(0)) << " K");
+    for (const bool newtonStart : newtonStarts) {
+        cfg.newtonStart = newtonStart;
+        for (const double hSpec : {364.5, 364.999}) {
+            auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+            BOOST_CHECK_MESSAGE(!FlashFrom365K::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
+                                                      ptTolerance, EOSType::PR),
+                                "newtonStart " << newtonStart << ": hSpec = " << hSpec
+                                << " accepted at " << Opm::getValue(fs.temperature(0)) << " K");
+        }
     }
 }
 
@@ -572,24 +672,37 @@ BOOST_AUTO_TEST_CASE(RecoversRootPastFailingTrialLeanFeed)
     // isothermal flash fails at every temperature from 447 to 549 K. With the
     // built-in caloric model the search runs no flash; the only one is at the
     // root, 560 K, which has to be found.
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
     constexpr double Tstar = 560.;
     const double hSpec = enthalpyF1(atmosphericPressure, Tstar, EnthalpyModel::caloric, leanZ);
-    const double T = recoverTemperatureF1<PhFlashF1>(atmosphericPressure, hSpec, cfg, leanZ);
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<PhFlashF1>(atmosphericPressure, hSpec,
+                                                             cfg, leanZ);
+            BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(FlashingSearchRecoversRootLeanFeed)
 {
     // As above, with a replacement provider: the search flashes at every
     // trial, meets the failing flashes from 447 to 549 K, and has to replace
-    // those trials to find the root at 560 K.
+    // those trials to find the root at 560 K. From 300 K the Newton stage
+    // walks into that range and hands over to the bracket search.
     using FlashingSearch = Opm::PHFlash<Scalar, FluidSystemF1, PassThroughEnthalpyF1>;
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
     constexpr double Tstar = 560.;
     const double hSpec = enthalpyF1(atmosphericPressure, Tstar, EnthalpyModel::caloric, leanZ);
-    const double T = recoverTemperatureF1<FlashingSearch>(atmosphericPressure, hSpec, cfg, leanZ);
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<FlashingSearch>(atmosphericPressure, hSpec,
+                                                                  cfg, leanZ);
+            BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(RecoversRootBesideFailedTrialsLeanFeed)
@@ -598,11 +711,17 @@ BOOST_AUTO_TEST_CASE(RecoversRootBesideFailedTrialsLeanFeed)
     // to [425, 556.25] K, where the false-position trial and its replacements
     // all fall in the range from 447 to 549 K in which the isothermal flash
     // fails. The root can be evaluated and has to be found.
-    const auto cfg = makeConfigF1(EnthalpyModel::eos_departure);
+    auto cfg = makeConfigF1(EnthalpyModel::eos_departure);
     constexpr double Tstar = 443.;
     const double hSpec = enthalpyF1(atmosphericPressure, Tstar, EnthalpyModel::eos_departure, leanZ);
-    const double T = recoverTemperatureF1<PhFlashF1>(atmosphericPressure, hSpec, cfg, leanZ);
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<PhFlashF1>(atmosphericPressure, hSpec,
+                                                             cfg, leanZ);
+            BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_CASE(FlashingSearchRecoversRootBesideFailedTrialsLeanFeed)
@@ -610,11 +729,17 @@ BOOST_AUTO_TEST_CASE(FlashingSearchRecoversRootBesideFailedTrialsLeanFeed)
     // As above on the hot side of the failing range: a search that flashes at
     // every trial, with the caloric model and the root at 549.5 K.
     using FlashingSearch = Opm::PHFlash<Scalar, FluidSystemF1, PassThroughEnthalpyF1>;
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
     constexpr double Tstar = 549.5;
     const double hSpec = enthalpyF1(atmosphericPressure, Tstar, EnthalpyModel::caloric, leanZ);
-    const double T = recoverTemperatureF1<FlashingSearch>(atmosphericPressure, hSpec, cfg, leanZ);
-    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            const double T = recoverTemperatureF1<FlashingSearch>(atmosphericPressure, hSpec,
+                                                                  cfg, leanZ);
+            BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+        }
+    }
 }
 
 using FlashWithFailingRange = Opm::PHFlash<Scalar, FluidSystemF1, EnthalpyWithFailingRangeF1>;
@@ -623,27 +748,32 @@ BOOST_AUTO_TEST_CASE(RecoversRootOnEitherSideOfFailingRange)
 {
     // The same with a range that fails whatever the isothermal flash does: the
     // root is found on either side of it.
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
-    for (const double Tstar : {443., 552.}) {
-        const double hSpec = EnthalpyWithFailingRangeF1::enthalpy(Tstar);
-        const double T = recoverTemperatureF1<FlashWithFailingRange>(f1Pressure, hSpec, cfg);
-        BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
-                            "expected " << Tstar << " K, recovered " << T << " K");
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    for (const bool newtonStart : newtonStarts) {
+        cfg.newtonStart = newtonStart;
+        for (const double Tstar : {443., 552.}) {
+            const double hSpec = EnthalpyWithFailingRangeF1::enthalpy(Tstar);
+            const double T = recoverTemperatureF1<FlashWithFailingRange>(f1Pressure, hSpec, cfg);
+            BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
+                                "newtonStart " << newtonStart << ": expected " << Tstar
+                                << " K, recovered " << T << " K");
+        }
     }
 }
 
 BOOST_AUTO_TEST_CASE(FailedTrialIsReplaced)
 {
-    // The first interior trial cannot be evaluated; another temperature in the
-    // bracket replaces it, and the root is found.
+    // The first interior trial of the bracket search cannot be evaluated;
+    // another temperature in the bracket replaces it, and the root is found.
     EnthalpyFailingCallsF1::calls = 0;
     EnthalpyFailingCallsF1::firstFailure = 3;
     EnthalpyFailingCallsF1::lastFailure = 3;
 
     constexpr double Tstar = 340.;
     const double hSpec = enthalpyF1(f1Pressure, Tstar, EnthalpyModel::caloric);
-    const double T = recoverTemperatureF1<FlashFailingCalls>(f1Pressure, hSpec,
-                                                             makeConfigF1(EnthalpyModel::caloric));
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    cfg.newtonStart = false;
+    const double T = recoverTemperatureF1<FlashFailingCalls>(f1Pressure, hSpec, cfg);
     BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
     BOOST_CHECK_GT(EnthalpyFailingCallsF1::calls, 3);
 }
@@ -651,40 +781,51 @@ BOOST_AUTO_TEST_CASE(FailedTrialIsReplaced)
 BOOST_AUTO_TEST_CASE(NoEvaluableReplacementReturnsFalse)
 {
     // No interior temperature can be evaluated: the bracket cannot be refined.
-    EnthalpyFailingCallsF1::calls = 0;
-    EnthalpyFailingCallsF1::firstFailure = 3;
-    EnthalpyFailingCallsF1::lastFailure = std::numeric_limits<int>::max();
-
+    // With the Newton stage, its first trial and the first enthalpy of its
+    // slope can be evaluated, and nothing after them.
     const double hSpec = enthalpyF1(f1Pressure, 340., EnthalpyModel::caloric);
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-    BOOST_CHECK(!FlashFailingCalls::solve(fs, hSpec, makeConfigF1(EnthalpyModel::caloric),
-                                          PTFlashMethod::Ssi, ptTolerance, EOSType::PR));
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    for (const bool newtonStart : newtonStarts) {
+        EnthalpyFailingCallsF1::calls = 0;
+        EnthalpyFailingCallsF1::firstFailure = 3;
+        EnthalpyFailingCallsF1::lastFailure = std::numeric_limits<int>::max();
+        cfg.newtonStart = newtonStart;
+        auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+        BOOST_CHECK_MESSAGE(!FlashFailingCalls::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
+                                                      ptTolerance, EOSType::PR),
+                            "newtonStart " << newtonStart);
+    }
 }
 
 using FlashBadCall = Opm::PHFlash<Scalar, FluidSystemF1, EnthalpyBadCallF1>;
 
 // The number of enthalpy calls of a solve without a bad call; the last call
 // is the check at the solution.
-int callsWithoutBadCall(const double hSpec)
+int callsWithoutBadCall(const double hSpec, const bool newtonStart)
 {
     EnthalpyBadCallF1::calls = 0;
     EnthalpyBadCallF1::badCall = 0;
-    recoverTemperatureF1<FlashBadCall>(f1Pressure, hSpec, makeConfigF1(EnthalpyModel::caloric));
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    cfg.newtonStart = newtonStart;
+    recoverTemperatureF1<FlashBadCall>(f1Pressure, hSpec, cfg);
     return EnthalpyBadCallF1::calls;
 }
 
-// The root Tstar is found with a bad call at either end of the interval or
-// at one of the first two interior trials.
-void checkRootFoundPastBadCall(const double hSpec, const double Tstar)
+// The root Tstar is found with a bad call at any of the first four calls.
+// In the bracket search alone they are the ends of the interval and the first
+// two interior trials. With the Newton stage they are its first trial, the
+// two enthalpies of the slope there, and its second trial.
+void checkRootFoundPastBadCall(const double hSpec, const double Tstar, const bool newtonStart)
 {
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    cfg.newtonStart = newtonStart;
     for (int badCall = 1; badCall <= 4; ++badCall) {
         EnthalpyBadCallF1::calls = 0;
         EnthalpyBadCallF1::badCall = badCall;
-        const double T = recoverTemperatureF1<FlashBadCall>(f1Pressure, hSpec,
-                                                            makeConfigF1(EnthalpyModel::caloric));
+        const double T = recoverTemperatureF1<FlashBadCall>(f1Pressure, hSpec, cfg);
         BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
-                            "bad call " << badCall << ": expected " << Tstar
-                            << " K, recovered " << T << " K");
+                            "newtonStart " << newtonStart << ", bad call " << badCall
+                            << ": expected " << Tstar << " K, recovered " << T << " K");
     }
 }
 
@@ -695,8 +836,10 @@ BOOST_AUTO_TEST_CASE(NonFiniteResidualIsNotEvaluable)
     constexpr double Tstar = 340.;
     const double hSpec = enthalpyF1(f1Pressure, Tstar, EnthalpyModel::caloric);
     EnthalpyBadCallF1::kind = EnthalpyBadCallF1::Kind::notFinite;
-    BOOST_REQUIRE_GT(callsWithoutBadCall(hSpec), 5);
-    checkRootFoundPastBadCall(hSpec, Tstar);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_REQUIRE_GT(callsWithoutBadCall(hSpec, newtonStart), 5);
+        checkRootFoundPastBadCall(hSpec, Tstar, newtonStart);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(MatrixErrorIsNotEvaluable)
@@ -708,18 +851,23 @@ BOOST_AUTO_TEST_CASE(MatrixErrorIsNotEvaluable)
     constexpr double Tstar = 340.;
     const double hSpec = enthalpyF1(f1Pressure, Tstar, EnthalpyModel::caloric);
     EnthalpyBadCallF1::kind = EnthalpyBadCallF1::Kind::matrixError;
-    const int finalCall = callsWithoutBadCall(hSpec);
-    BOOST_REQUIRE_GT(finalCall, 5);
-    checkRootFoundPastBadCall(hSpec, Tstar);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            const int finalCall = callsWithoutBadCall(hSpec, newtonStart);
+            BOOST_REQUIRE_GT(finalCall, 5);
+            checkRootFoundPastBadCall(hSpec, Tstar, newtonStart);
 
-    EnthalpyBadCallF1::calls = 0;
-    EnthalpyBadCallF1::badCall = finalCall;
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-    bool solved = true;
-    BOOST_CHECK_NO_THROW(solved = FlashBadCall::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
-                                                      ptTolerance, EOSType::PR));
-    BOOST_CHECK(!solved);
+            EnthalpyBadCallF1::calls = 0;
+            EnthalpyBadCallF1::badCall = finalCall;
+            auto cfg = makeConfigF1(EnthalpyModel::caloric);
+            cfg.newtonStart = newtonStart;
+            auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+            bool solved = true;
+            BOOST_CHECK_NO_THROW(solved = FlashBadCall::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
+                                                              ptTolerance, EOSType::PR));
+            BOOST_CHECK(!solved);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -732,15 +880,106 @@ BOOST_AUTO_TEST_CASE(EnthalpyStepReturnsFalse)
     // converges onto the step, and the residual check at the converged
     // temperature reports that no temperature has this enthalpy.
     using Flash = Opm::PHFlash<Scalar, FluidSystemF1, EnthalpyStepAt350KF1>;
-    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    auto cfg = makeConfigF1(EnthalpyModel::caloric);
     const double hSpec = enthalpyF1(f1Pressure, EnthalpyStepAt350KF1::stepTemperature,
                                     EnthalpyModel::caloric)
                        + 0.5 * EnthalpyStepAt350KF1::step;
 
-    auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
-    BOOST_CHECK(!Flash::solve(fs, hSpec, cfg, PTFlashMethod::Ssi, ptTolerance, EOSType::PR));
-    BOOST_CHECK_SMALL(Opm::getValue(fs.temperature(0)) - EnthalpyStepAt350KF1::stepTemperature,
-                      cfg.temperatureTolerance);
+    for (const bool newtonStart : newtonStarts) {
+        BOOST_TEST_CONTEXT("newtonStart " << newtonStart) {
+            cfg.newtonStart = newtonStart;
+            auto fs = makeInitialState<FluidSystemF1, EvaluationF1>(f1Pressure, f1Temperature, f1Z);
+            BOOST_CHECK(!Flash::solve(fs, hSpec, cfg, PTFlashMethod::Ssi,
+                                      ptTolerance, EOSType::PR));
+            BOOST_CHECK_SMALL(Opm::getValue(fs.temperature(0))
+                              - EnthalpyStepAt350KF1::stepTemperature,
+                              cfg.temperatureTolerance);
+        }
+    }
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(NewtonStage)
+
+BOOST_AUTO_TEST_CASE(StartAtRootTakesOneTrial)
+{
+    // Started at the root, the search evaluates the enthalpy four times: at
+    // its one trial, at the two states of the slope there, and at the check
+    // at the solution.
+    using Flash = Opm::PHFlash<Scalar, FluidSystemF1, PassThroughEnthalpyF1>;
+    for (const auto model : {EnthalpyModel::caloric, EnthalpyModel::eos_departure}) {
+        for (const double Tstar : {300., 340.}) {
+            BOOST_TEST_CONTEXT("model " << static_cast<int>(model) << ", " << Tstar << " K") {
+                const double hSpec = enthalpyF1(f1Pressure, Tstar, model);
+                PassThroughEnthalpyF1::calls = 0;
+                const double T = recoverTemperatureF1<Flash>(f1Pressure, hSpec,
+                                                             makeConfigF1(model), f1Z, Tstar);
+                BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+                BOOST_CHECK_EQUAL(PassThroughEnthalpyF1::calls, 4);
+            }
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(RecoversRootFromAnyStart)
+{
+    // Starts near and far on either side of the root, outside the interval,
+    // and not finite, with the built-in provider and with a flash at every
+    // trial.
+    using FlashingSearch = Opm::PHFlash<Scalar, FluidSystemF1, PassThroughEnthalpyF1>;
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+    for (const auto model : {EnthalpyModel::caloric, EnthalpyModel::eos_departure}) {
+        const auto cfg = makeConfigF1(model);
+        for (const double Tstar : {280., 340., 400.}) {
+            const double hSpec = enthalpyF1(f1Pressure, Tstar, model);
+            for (const double start : {Tstar - 50., Tstar - 5., Tstar - 1., Tstar + 1.,
+                                       Tstar + 5., Tstar + 50., 100., 900., nan}) {
+                BOOST_TEST_CONTEXT("model " << static_cast<int>(model) << ", " << Tstar
+                                   << " K from " << start << " K") {
+                    BOOST_CHECK_SMALL(recoverTemperatureF1<PhFlashF1>(f1Pressure, hSpec, cfg,
+                                                                      f1Z, start) - Tstar,
+                                      roundTripTolerance);
+                    BOOST_CHECK_SMALL(recoverTemperatureF1<FlashingSearch>(f1Pressure, hSpec, cfg,
+                                                                           f1Z, start) - Tstar,
+                                      roundTripTolerance);
+                }
+            }
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(StartThatCannotBeEvaluatedHandsOver)
+{
+    // The start lies in the range that cannot be evaluated: the Newton stage
+    // stops at its first trial, and the bracket search over the interval finds
+    // the root on either side of the range.
+    using FlashWithFailingRange = Opm::PHFlash<Scalar, FluidSystemF1, EnthalpyWithFailingRangeF1>;
+    const auto cfg = makeConfigF1(EnthalpyModel::caloric);
+    for (const double Tstar : {443., 552.}) {
+        const double hSpec = EnthalpyWithFailingRangeF1::enthalpy(Tstar);
+        const double T = recoverTemperatureF1<FlashWithFailingRange>(f1Pressure, hSpec, cfg,
+                                                                     f1Z, 500.);
+        BOOST_CHECK_MESSAGE(std::abs(T - Tstar) < roundTripTolerance,
+                            "expected " << Tstar << " K, recovered " << T << " K");
+    }
+}
+
+BOOST_AUTO_TEST_CASE(BracketOfNewtonStageIsKept)
+{
+    // H(T) = 1e-6 T^4 from 380 K: the first Newton step overshoots the root at
+    // 400 K to about 401.6 K, and the second lands at about 400.01 K, which
+    // cannot be evaluated. The bracket search goes on from [380, 401.6] K and
+    // never evaluates the ends of the interval.
+    using Flash = Opm::PHFlash<Scalar, FluidSystemF1, QuarticEnthalpyF1>;
+    constexpr double Tstar = 400.;
+    QuarticEnthalpyF1::lowest = std::numeric_limits<double>::max();
+    QuarticEnthalpyF1::highest = std::numeric_limits<double>::lowest();
+    const double T = recoverTemperatureF1<Flash>(f1Pressure, QuarticEnthalpyF1::enthalpy(Tstar),
+                                                 makeConfigF1(EnthalpyModel::caloric), f1Z, 380.);
+    BOOST_CHECK_SMALL(T - Tstar, roundTripTolerance);
+    BOOST_CHECK_GT(QuarticEnthalpyF1::lowest, 379.99);
+    BOOST_CHECK_LT(QuarticEnthalpyF1::highest, 401.7);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

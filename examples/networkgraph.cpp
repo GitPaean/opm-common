@@ -448,7 +448,7 @@ NetWork::parse_unrst(const std::filesystem::path& inputFileName)
     m_bran_input_list.push_back({});
     m_well_input_list.push_back({});
 
-    br_input_from_rst(inputFileName, rstep_vect);
+    br_input_from_rst(inputFileName.string(), rstep_vect);
 }
 
 std::string

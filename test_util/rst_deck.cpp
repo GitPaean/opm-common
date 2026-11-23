@@ -272,13 +272,15 @@ void update_restart_path(Options& opt,
         auto unif = io_config.getUNIFIN();
         auto fmt = io_config.getFMTIN();
         auto path = fs::path(base_arg);
-        auto extension = path.extension();
+        auto extension = path.extension().string();
 
         rst_step = verify_extension(extension, unif, fmt);
 
+        // generic_string(): 'base' goes into the RESTART keyword of the
+        // generated deck, so keep '/' separators on Windows too.
         if (path.is_absolute()) {
             path.replace_extension();
-            base = path;
+            base = path.generic_string();
         }
         else {
             auto target_path = fs::current_path();
@@ -287,10 +289,10 @@ void update_restart_path(Options& opt,
             }
 
             if (same_mount(path, target_path)) {
-                base = fs::relative(path, target_path).replace_extension();
+                base = fs::relative(path, target_path).replace_extension().generic_string();
             }
             else {
-                base = fs::canonical(fs::absolute(path)).replace_extension();
+                base = fs::canonical(fs::absolute(path)).replace_extension().generic_string();
             }
         }
     }
@@ -347,12 +349,12 @@ std::pair<Options, std::string> load_options(int argc, char **argv)
 
         if (fs::is_directory(target_arg)) {
             opt.target_path = target_arg;
-            opt.target_fname = fs::path(opt.input_deck).filename();
+            opt.target_fname = fs::path(opt.input_deck).filename().string();
         }
         else {
             auto target_path = fs::path(fs::absolute(target_arg));
-            opt.target_path = fs::absolute(target_path.parent_path());
-            opt.target_fname = target_path.filename();
+            opt.target_path = fs::absolute(target_path.parent_path()).string();
+            opt.target_fname = target_path.filename().string();
         }
 
         if (opt.mode == Opm::FileDeck::OutputMode::COPY) {

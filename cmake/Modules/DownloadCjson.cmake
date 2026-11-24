@@ -10,8 +10,8 @@ target_sources(cjson PRIVATE ${cjson_SOURCE_DIR}/cJSON.c)
 if(OPM_ENABLE_PYTHON)
   set_target_properties(cjson PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
-execute_process(
-  COMMAND
-    ${CMAKE_COMMAND} -E create_symlink ${cjson_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/cjson
-)
+# The sources include the header as <cjson/cJSON.h>. Copy it into a cjson/
+# directory rather than symlinking the source tree: a symlink cannot be made
+# on every file system, and execute_process() would not report the failure.
+file(COPY ${cjson_SOURCE_DIR}/cJSON.h DESTINATION ${CMAKE_BINARY_DIR}/_deps/cjson)
 target_include_directories(cjson INTERFACE ${CMAKE_BINARY_DIR}/_deps)

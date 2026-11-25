@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 #include <string.h>
 #include <stdio.h>
 

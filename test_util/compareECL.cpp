@@ -22,7 +22,7 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>

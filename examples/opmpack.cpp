@@ -40,7 +40,7 @@
 #include <iostream>
 #include <string>
 
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 
 namespace fs = std::filesystem;
 

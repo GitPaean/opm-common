@@ -31,7 +31,7 @@
 #include <vector>
 #include <string>
 
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 
 using EclEntry = Opm::EclIO::EclFile::EclEntry;
 

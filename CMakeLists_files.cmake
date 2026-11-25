@@ -951,6 +951,7 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/common/utility/ConstexprAssert.hpp
   opm/common/utility/DemangledType.hpp
   opm/common/utility/FileSystem.hpp
+  opm/common/utility/Getopt.hpp
   opm/common/utility/IteratorRange.hpp
   opm/common/utility/MemPacker.hpp
   opm/common/utility/OpmInputError.hpp

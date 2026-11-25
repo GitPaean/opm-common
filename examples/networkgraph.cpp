@@ -33,7 +33,7 @@
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 #include <iomanip>
 #include <iostream>
 #include <iterator>

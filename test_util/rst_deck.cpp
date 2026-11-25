@@ -51,7 +51,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 
 namespace fs = std::filesystem;
 

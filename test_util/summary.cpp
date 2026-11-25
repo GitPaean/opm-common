@@ -32,7 +32,7 @@
 #include <string>
 #include <vector>
 
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 
 namespace {
 

@@ -21,7 +21,7 @@
 #include <iomanip>
 #include <iostream>
 #include <tuple>
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 #include <sstream>
 #include <stdexcept>
 

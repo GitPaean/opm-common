@@ -36,7 +36,7 @@
 #include <string_view>
 #include <type_traits>
 
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 
 using namespace Opm::EclIO;
 

@@ -33,7 +33,7 @@
 
 #include <fmt/format.h>
 
-#include <getopt.h>
+#include <opm/common/utility/Getopt.hpp>
 
 namespace {
 

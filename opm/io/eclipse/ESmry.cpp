@@ -649,10 +649,11 @@ void ESmry::read_ministeps_from_disk()
 
     std::fstream fileH;
 
-    if (formattedFiles[specInd])
-        fileH.open(dataFileList[dataFileIndex], std::ios::in);
-    else
-        fileH.open(dataFileList[dataFileIndex], std::ios::in |  std::ios::binary);
+    // Binary for both: a formatted Eclipse file is a fixed-width,
+    // LF-separated record stream whose offsets below come from the same
+    // byte counting as the unformatted one, so newline translation on
+    // Windows would desynchronise every seekg() from the file.
+    fileH.open(dataFileList[dataFileIndex], std::ios::in | std::ios::binary);
 
     int ministep_value;
 
@@ -663,10 +664,7 @@ void ESmry::read_ministeps_from_disk()
             specInd = std::get<0>(miniStepList[n]);
             dataFileIndex = std::get<1>(miniStepList[n]);
 
-            if (formattedFiles[specInd])
-                fileH.open(dataFileList[dataFileIndex], std::ios::in );
-            else
-                fileH.open(dataFileList[dataFileIndex], std::ios::in |  std::ios::binary);
+            fileH.open(dataFileList[dataFileIndex], std::ios::in | std::ios::binary);
         }
 
         std::uint64_t stepFilePos = std::get<2>(miniStepList[n]);
@@ -753,10 +751,11 @@ void ESmry::loadData(const std::vector<std::string>& vectList) const
         blockSize_f= static_cast<std::uint64_t>(MaxNumBlockReal * numColumnsReal * columnWidthReal + nLinesBlock);
     }
 
-    if (formattedFiles[specInd])
-        fileH.open(dataFileList[dataFileIndex], std::ios::in);
-    else
-        fileH.open(dataFileList[dataFileIndex], std::ios::in |  std::ios::binary);
+    // Binary for both: a formatted Eclipse file is a fixed-width,
+    // LF-separated record stream whose offsets below come from the same
+    // byte counting as the unformatted one, so newline translation on
+    // Windows would desynchronise every seekg() from the file.
+    fileH.open(dataFileList[dataFileIndex], std::ios::in | std::ios::binary);
 
     for (const auto& ministep : timeStepList) {
         if (dataFileIndex != std::get<1>(ministep)) {
@@ -764,10 +763,7 @@ void ESmry::loadData(const std::vector<std::string>& vectList) const
             specInd = std::get<0>(ministep);
             dataFileIndex = std::get<1>(ministep);
 
-            if (formattedFiles[specInd])
-                fileH.open(dataFileList[dataFileIndex], std::ios::in );
-            else
-                fileH.open(dataFileList[dataFileIndex], std::ios::in |  std::ios::binary);
+            fileH.open(dataFileList[dataFileIndex], std::ios::in | std::ios::binary);
         }
 
         const auto stepFilePos = std::get<2>(ministep);;
@@ -856,9 +852,11 @@ void ESmry::loadData() const
 
     std::vector<int> keywpos = makeKeywPosVector(specInd);
 
-    auto openMode = formattedFiles[specInd]
-                    ? std::ios::in
-                    : std::ios::in | std::ios::binary;
+    // Binary for both: a formatted Eclipse file is a fixed-width,
+    // LF-separated record stream whose offsets below come from the same
+    // byte counting as the unformatted one, so newline translation on
+    // Windows would desynchronise every seekg() from the file.
+    const auto openMode = std::ios::in | std::ios::binary;
 
     fileH.open(dataFileList[dataFileIndex], openMode);
 
@@ -872,10 +870,6 @@ void ESmry::loadData() const
             }
 
             dataFileIndex = std::get<1>(ministep);
-
-            openMode = formattedFiles[specInd]
-                       ? std::ios::in
-                       : std::ios::in | std::ios::binary;
 
             fileH.open(dataFileList[dataFileIndex], openMode);
         }
@@ -963,12 +957,8 @@ ESmry::getListOfArrays(const std::string& filename, bool formatted)
 
     std::int64_t num;
 
-    if (formatted) {
-        ptr = fopen(filename.c_str(),"r");  // r for read, files opened as text files
-    }
-    else {
-        ptr = fopen(filename.c_str(),"rb");  // r for read, b for binary
-    }
+    // Binary for both: see the note on the fstream opens above.
+    ptr = fopen(filename.c_str(), "rb");
 
     if (!ptr) {
         OPM_THROW(std::runtime_error, fmt::format("Error opening ESMRY file '{}' for reading", filename));
